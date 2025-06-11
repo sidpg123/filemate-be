@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+enum Role {
+  CA
+  Client
+  Admin
+}
+
+enum FeeStatus {
+  Pending
+  Paid
+  Overdue
+}
+
+// MODELS
+
+model Admin {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(CA)
+  storageUsed  Float    @default(0) // in GB
+  createdAt    DateTime @default(now())
+
+  clients      Client[]
+  subscription Subscription?
+
+  @@index([email])
+}
+
+model Subscription {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  plan                String // e.g., 'starter', 'pro'
+  status              String // active, cancelled, etc.
+  razorpay_order_id   String? // Nullable, for when payment is made
+  razorpay_payment_id String? // Nullable, for when payment is made
+  razorpay_signature   String? // Nullable, for when payment is made
+  expiresAt           DateTime
+  createdAt           DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Client {
+  id          String   @id @default(uuid())
+  caId        String   @map("ca_id")
+  name        String
+  email       String?  @unique
+  role        Role     @default(Client) // Default role for clients
+  // password    String?
+  phone       String?
+  // aadharNo    String        @unique @map("aadhar_no")
+  status      String   @default("active") // e.g., 'active', 'inactive', 'archived'
+  // panNo       String        @unique @map("pan_no")
+  address     String
+  storageUsed Float    @default(0) @map("storage_used") // in MB
+  createdAt   DateTime @default(now())
+
+  ca        User          @relation(fields: [caId], references: [id], onDelete: Cascade)
+  documents Document[]
+  fees      PendingFees[]
+
+  @@index([id, createdAt])
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  clientId     String   @map("client_id")
+  fileName     String
+  fileKey      String
+  thumbnailKey String?
+  fileType     String
+  fileSize     Float
+  uploadedAt   DateTime @default(now())
+  category     String? // Optional: e.g., 'ITR', 'PAN'
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model PendingFees {
+  id          String    @id @default(uuid())
+  clientId    String    @map("client_id")
+  amount      Float
+  dueDate     DateTime
+  note        String? // Optional note for the fee
+  status      FeeStatus @default(Pending)
+  createdAt   DateTime  @default(now())
+  paymentDate DateTime? // Nullable, for when the fee is paid
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
