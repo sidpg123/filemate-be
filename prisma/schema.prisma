@@ -31,16 +31,16 @@ model Admin {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(CA)
-  storageUsed  Float    @default(0) // in GB
-  createdAt    DateTime @default(now())
-
-  clients      Client[]
-  subscription Subscription?
+  id               String        @id @default(uuid())
+  name             String
+  email            String        @unique
+  passwordHash     String
+  role             Role          @default(CA)
+  storageUsed      Float         @default(0) // in GB
+  createdAt        DateTime      @default(now())
+  allocatedStorage Float         @default(1)
+  clients          Client[]
+  subscription     Subscription?
 
   @@index([email])
 }
@@ -52,7 +52,7 @@ model Subscription {
   status              String // active, cancelled, etc.
   razorpay_order_id   String? // Nullable, for when payment is made
   razorpay_payment_id String? // Nullable, for when payment is made
-  razorpay_signature   String? // Nullable, for when payment is made
+  razorpay_signature  String? // Nullable, for when payment is made
   expiresAt           DateTime
   createdAt           DateTime @default(now())
 
@@ -88,6 +88,7 @@ model Document {
   fileKey      String
   thumbnailKey String?
   fileType     String
+  year         String // e.g. 2023-2024
   fileSize     Float
   uploadedAt   DateTime @default(now())
   category     String? // Optional: e.g., 'ITR', 'PAN'

@@ -20,11 +20,19 @@ import { ErrorHandler } from '../lib/utils';
 
 export const getClients = TryCatch(async (req, res, next) => {
     console.log("Fetching clients for user...");
-    const userId = req.user?.id; // Assuming user ID is stored in req.user by authentication middleware
-    const limit = 2;
+    const userId = req.user?.id;
+    const limit = 3;
     const rawCursorCreatedAt = req.query.cursorCreatedAt;
     const rawCursorId = req.query.cursorId;
-
+    const nameSearch = req.query.search as string | undefined;
+    const statusFilter = req.query.status as string | undefined;
+    const feesStatusFilter = req.query.feeStatus as string | undefined; // Pending, Paid, Overdue
+    const sortBy = req.query.sortBy as string | undefined; // pending fees, name
+    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    let count = 0;
+    if(nameSearch) count++;
+    console.log("count of search", count);
+    console.log("search is: ", nameSearch);
     let cursor;
     if (rawCursorCreatedAt && rawCursorId) {
         cursor = {
@@ -32,21 +40,45 @@ export const getClients = TryCatch(async (req, res, next) => {
             id: rawCursorId as string
         }
     }
-    console.log("User ID:", userId);
-    console.log("Typeof user ID:", typeof userId);
+
+    // Build where clause for search and filter
+    const where: any = {
+        caId: userId,
+    };
+
+    if (nameSearch) {
+        where.name = { contains: nameSearch, mode: "insensitive" };
+    }
+
+    if (statusFilter) {
+        where.status = statusFilter;
+    }
+
+    if (feesStatusFilter) {
+        where.fees = {
+            some: {
+                status: feesStatusFilter
+            }
+        };
+    }
+
+    // Build orderBy
+    let orderBy: any[] = [];
+    if (sortBy === "name") {
+        orderBy.push({ name: sortOrder });
+    } else {
+        orderBy.push({ createdAt: sortOrder });
+    }
+    orderBy.push({ id: "desc" }); // tie breaker
+
     const clients = await db.client.findMany({
-        where: {
-            caId: userId,
-        },
+        where,
         take: limit + 1,
         cursor,
         skip: cursor ? 1 : 0,
-        orderBy: [
-            { createdAt: 'desc' },
-            { id: 'desc' }, // tie breaker
-        ],
+        orderBy,
         include: {
-            fees: true, // Include fees related to the client
+            fees: true,
         },
     });
 
@@ -61,10 +93,75 @@ export const getClients = TryCatch(async (req, res, next) => {
     res.status(200).json({
         success: true,
         message: "Clients fetched successfully",
-        clients: paginatedClients, // ✅ now returns only `limit` clients
+        clients: paginatedClients,
         nextCursor
     });
-})
+});
+
+export const getClientsSortedByFees = TryCatch(async (req, res, next) => {
+  const userId = req.user?.id;
+  const limit = 2;
+  const cursorId = req.query.cursorId as string | undefined;
+
+  const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+
+  // Step 1: Get all grouped + sorted clientIds (simulate cursor)
+  const allFeeGroups = await db.pendingFees.groupBy({
+    by: ["clientId"],
+    where: {
+      client: {
+        caId: userId,
+      },
+      status: "Pending",
+    },
+    _sum: {
+      amount: true,
+    },
+    orderBy: {
+      _sum: { amount: sortOrder },
+    },
+  });
+
+  // Step 2: Find cursor index
+  let startIndex = 0;
+  if (cursorId) {
+    const index = allFeeGroups.findIndex((f) => f.clientId === cursorId);
+    if (index !== -1) {
+      startIndex = index + 1;
+    }
+  }
+
+  const paginatedFeeGroups = allFeeGroups.slice(startIndex, startIndex + limit);
+  const hasNextPage = startIndex + limit < allFeeGroups.length;
+  const nextCursor = hasNextPage
+    ? allFeeGroups[startIndex + limit]?.clientId
+    : null;
+
+  // Step 3: Fetch clients by ID
+  const clientIds = paginatedFeeGroups.map((g) => g.clientId);
+
+  const clients = await db.client.findMany({
+    where: {
+      id: { in: clientIds },
+    },
+    include: {
+      fees: true,
+    },
+  });
+
+  // Step 4: Sort clients in the same order as feeGroups
+  const sortedClients = clientIds.map((id) =>
+    clients.find((c) => c.id === id)
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Clients sorted by pending fees",
+    clients: sortedClients,
+    nextCursor,
+  });
+});
+
 
 export const addClient = TryCatch(async (req, res, next) => {
     console.log("Adding new client...");
