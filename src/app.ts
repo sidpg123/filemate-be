@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { corsOptions } from './constants/config';
 import authRoutes from './routes/auth'
 import clientRoutes from './routes/client'
+import userRoutes from './routes/user'
 import paymentRoutes from './routes/payment'
 import cookieParser from "cookie-parser";
 import errorMiddleware from './middlewares/error';
@@ -40,6 +41,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/v1/auth", authRoutes )
 app.use("/api/v1/clients", clientRoutes )
 app.use("/api/v1/payment", paymentRoutes )
+app.use("/api/v1/user", userRoutes );
 
 
 app.use(errorMiddleware);

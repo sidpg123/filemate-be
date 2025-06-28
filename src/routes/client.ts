@@ -1,6 +1,6 @@
 import express from "express";
 import { isAuthenticated } from "../middlewares/auth.js";
-import { addClient, addFeeRecord, deleteClient, getClientById, getClients, getFeeRecords, updateClient, updateFeeRecord } from "../controllers/client.controller.js";
+import { addClient, addFeeRecord, deleteClient, getClientById, getClients, getClientsSortedByFees, getFeeRecords, updateClient, updateFeeRecord } from "../controllers/client.controller.js";
 // import { getMyProfile, login, refreshToken, register } from "../controllers/auth.controller.js";
 // import { getClients } from "../controllers/client.controller.js";
 
@@ -24,6 +24,7 @@ const app = express.Router()
 app.use(isAuthenticated)
 
 app.get('/', getClients);
+app.get('/sortbyfees', getClientsSortedByFees);
 app.post('/', addClient);    
 app.get('/:id', getClientById);
 app.put('/:id', updateClient);
