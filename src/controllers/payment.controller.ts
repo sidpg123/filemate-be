@@ -1,5 +1,5 @@
 import TryCatch from "../lib/healpers";
-import { instance } from "../app";
+import { instance } from "../config/razorpay";
 import crypto from "crypto"
 import db from '../lib/db';
 import { ErrorHandler } from "../lib/utils";

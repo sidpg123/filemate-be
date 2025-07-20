@@ -70,7 +70,7 @@ model Client {
   // aadharNo    String        @unique @map("aadhar_no")
   status      String   @default("active") // e.g., 'active', 'inactive', 'archived'
   // panNo       String        @unique @map("pan_no")
-  address     String
+  // address     String
   storageUsed Float    @default(0) @map("storage_used") // in MB
   createdAt   DateTime @default(now())
 
@@ -87,11 +87,11 @@ model Document {
   fileName     String
   fileKey      String
   thumbnailKey String?
-  fileType     String
+  // fileType     String
   year         String // e.g. 2023-2024
   fileSize     Float
   uploadedAt   DateTime @default(now())
-  category     String? // Optional: e.g., 'ITR', 'PAN'
+  // category     String? // Optional: e.g., 'ITR', 'PAN'
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
