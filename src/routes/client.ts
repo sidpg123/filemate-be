@@ -1,6 +1,6 @@
 import express from "express";
 import { isAuthenticated } from "../middlewares/auth.js";
-import { addClient, addFeeRecord, deleteClient, getClientById, getClients, getClientsSortedByFees, getFeeRecords, updateClient, updateFeeRecord } from "../controllers/client.controller.js";
+import { addClient, addFeeRecord, deleteClient, getClientById, getClients, getClientsSortedByFees, getDocuments, getFeeRecords, updateClient, updateFeeRecord, uploadDocMetaData } from "../controllers/client.controller.js";
 // import { getMyProfile, login, refreshToken, register } from "../controllers/auth.controller.js";
 // import { getClients } from "../controllers/client.controller.js";
 
@@ -31,7 +31,11 @@ app.put('/:id', updateClient);
 app.delete('/:id', deleteClient);
 app.get('/:id/fee', getFeeRecords);
 app.post('/:id/fee', addFeeRecord);
-app.put('/:id/fee/:feeId', updateFeeRecord)
+app.put('/:id/fee/:feeId', updateFeeRecord);
+
+
+app.get('/:id/document', getDocuments)
+app.post('/document', uploadDocMetaData);
 
 
 export default app;
