@@ -36,9 +36,9 @@ model User {
   email            String        @unique
   passwordHash     String
   role             Role          @default(CA)
-  storageUsed      Float         @default(0) // in GB
+  storageUsed      BigInt         @default(0) // in GB
   createdAt        DateTime      @default(now())
-  allocatedStorage Float         @default(1)
+  allocatedStorage BigInt         @default(1073741824) // 1 GB in bytes
   clients          Client[]
   subscription     Subscription?
 
@@ -71,7 +71,7 @@ model Client {
   status      String   @default("active") // e.g., 'active', 'inactive', 'archived'
   // panNo       String        @unique @map("pan_no")
   // address     String
-  storageUsed Float    @default(0) @map("storage_used") // in MB
+  storageUsed BigInt    @default(0) @map("storage_used") // in MB
   createdAt   DateTime @default(now())
 
   ca        User          @relation(fields: [caId], references: [id], onDelete: Cascade)

@@ -457,7 +457,6 @@ export const updateFeeRecord = TryCatch(async (req, res, next) => {
 })
 
 
-/// PENDING: TO UPLOAD storageUsed in user table
 export const uploadDocMetaData = TryCatch(async (req, res, next) => {
     const userId = req.user?.id;
     console.log("hitted uploadDocMetaDeta")
@@ -492,24 +491,50 @@ export const uploadDocMetaData = TryCatch(async (req, res, next) => {
 
     if (['png', 'jpg', 'jpeg', 'tiff', 'titf'].includes(fileType)) {
         thumbnailKey = fileKey;
-    } else if(fileType != 'pdf'){
+    } else if (fileType != 'pdf') {
         thumbnailKey = getThumbnailImageKey(fileType);
     }
+    
+    await db.$transaction(async (tx) => {
+        await tx.document.create({
+            data: {
+                clientId,
+                fileName,
+                fileKey,
+                thumbnailKey,
+                year,
+                fileSize, // should be a number or bigint
+            },
+        });
 
-    await db.document.create({
-        data: {
-            clientId,
-            fileName,
-            fileKey,
-            thumbnailKey,
-            year,
-            fileSize,
-        }
-    })
-    res.status(201).json({
-        success: true,
-        message: "Document data added successfully"
-    })
+        await tx.user.update({
+            where: {
+                id: userId,
+            },
+            data: {
+                storageUsed: {
+                    increment: BigInt(fileSize), // Make sure it's a bigint if storageUsed is bigint in DB
+                },
+            },
+        });
+
+        await tx.client.update({
+            where: {
+                id: clientId
+            },
+            data: {
+                storageUsed: {
+                    increment: BigInt(fileSize),
+                }
+            }
+        })
+
+        res.status(201).json({
+            success: true,
+            message: "Document data added successfully",
+        });
+    });
+
 })
 
 export const getDocuments = TryCatch(async (req, res, next) => {
@@ -582,12 +607,14 @@ export const getDocuments = TryCatch(async (req, res, next) => {
     for (const document of paginatedDocuments) {
 
         // Example for canned policy usage (Node.js SDK v3 style)
-        document.thumbnailKey = getSignedUrl({
-            url: `https://${process.env.AWS_CLOUDFRONT_DOMAIN_NAME}/${document.thumbnailKey}`,
-            keyPairId: process.env.CLOUDfRONT_KEY_PAIR_ID || '',
-            privateKey: process.env.CLOUDFRONT_PRIVATE_KEY || '',
-            dateLessThan: new Date(Date.now() + 1000 * 60 * 15).toISOString()
-        });
+        if (!document.thumbnailKey?.startsWith('/thumbnails/')) {
+            document.thumbnailKey = getSignedUrl({
+                url: `https://${process.env.AWS_CLOUDFRONT_DOMAIN_NAME}/${document.thumbnailKey}`,
+                keyPairId: process.env.CLOUDfRONT_KEY_PAIR_ID || '',
+                privateKey: process.env.CLOUDFRONT_PRIVATE_KEY || '',
+                dateLessThan: new Date(Date.now() + 1000 * 60 * 15).toISOString()
+            });
+        }
 
         document.fileKey = getSignedUrl({
             url: `https://${process.env.AWS_CLOUDFRONT_DOMAIN_NAME}/${document.fileKey}?response-content-disposition=attachment`,
@@ -601,7 +628,6 @@ export const getDocuments = TryCatch(async (req, res, next) => {
     res.status(200).json({
         success: true,
         data: paginatedDocuments,
-        nextCursor 
+        nextCursor
     });
 });
-    

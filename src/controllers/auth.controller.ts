@@ -39,7 +39,7 @@ export const login = TryCatch(async (req, res) => {
   console.log(JWT_SECRET)
   // Generate access and refresh tokens
   const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-    expiresIn: "15m",
+    expiresIn: "7d",
   });
   const refreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
     expiresIn: "7d",
@@ -106,7 +106,7 @@ export const googleLogin = TryCatch(async (req, res, next) => {
   if(client) {
     // Client exists, generate tokens
     const accessToken = jwt.sign({ id: client.id, role: client.role }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "7d",
     });
     const refreshToken = jwt.sign({ id: client.id, role: client.role }, JWT_SECRET, {
       expiresIn: "7d",
@@ -214,7 +214,7 @@ export const refreshToken = TryCatch(async (req, res, next) => {
 
     // // Generate new tokens
     const newAccessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "7d",
     });
 
     const newRefreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {

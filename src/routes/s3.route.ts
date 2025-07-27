@@ -4,8 +4,10 @@ import { isAuthenticated } from "@/middlewares/auth";
 
 const app = Router();
 
-app.post("/upload-url", isAuthenticated, getUploadUrl);
-app.get("/download-url", isAuthenticated, getDownloadUrl);
-app.delete("/delete-file", isAuthenticated, removeFile);
+app.use(isAuthenticated);
+
+app.post("/upload-url", getUploadUrl);
+app.get("/download-url",  getDownloadUrl);
+app.delete("/delete-file", removeFile);
 
 export default app;

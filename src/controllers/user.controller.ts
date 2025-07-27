@@ -10,7 +10,7 @@ export const userInfo = TryCatch(async (req, res, next) => {
     }
 
     //we have to send no of clients, storaeg used, pending fees. 
-    const [clientCount,storage,  totalPendingFees] = await Promise.all([
+    const [clientCount, storage, totalPendingFees] = await Promise.all([
         db.client.count({
             where: { caId: userId },
         }),
@@ -43,8 +43,8 @@ export const userInfo = TryCatch(async (req, res, next) => {
         data: {
             totalClients: clientCount,
             totalPendingFees: pendingFeesTotal,
-            storageUsed: storage?.storageUsed,
-            allocatedStorage: storage?.allocatedStorage
+            storageUsed: Number(storage?.storageUsed),
+            allocatedStorage: Number(storage?.allocatedStorage)
         },
     });
 

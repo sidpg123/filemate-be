@@ -14,6 +14,9 @@ dotenv.config({
     path: './.env'  
 });
 
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
 
 
 const app = express();

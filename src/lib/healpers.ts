@@ -13,20 +13,31 @@ const TryCatch = (passedFunc: (req: AuthenticatedRequest, res: Response, next: N
 export default TryCatch;
 
 const thumbnailMap: Record<string, string> = {
-  doc: 'public/thumbnails/docx.png',
-  docx: 'public/thumbnails/docx.png',
-  xls: 'public/thumbnails/xlsx.png',
-  xlsx: 'public/thumbnails/xlsx.png',
-  ppt: 'public/thumbnails/pptx.png',
-  pptx: 'public/thumbnails/pptx.png',
-  txt: 'public/thumbnails/txt.png',
-  csv: 'public/thumbnails/csv.png',
-  json: 'public/thumbnails/json.png',
-  zip: 'public/thumbnails/zip.png',
-  rar: 'public/thumbnails/rar.png',
-  // pdf: 'public/thumbnails/pdf.png',
+  doc: '/thumbnails/docx.png',
+  docx: '/thumbnails/docx.png',
+  xls: '/thumbnails/xlsx.png',
+  xlsx: '/thumbnails/xlsx.png',
+  ppt: '/thumbnails/pptx.png',
+  pptx: '/thumbnails/pptx.png',
+  txt: '/thumbnails/txt.png',
+  csv: '/thumbnails/csv.png',
+  json: '/thumbnails/json.png',
+  zip: '/thumbnails/zip.png',
+  rar: '/thumbnails/rar.png',
+  // pdf: '/thumbnails/pdf.png',
 }
 
 export const getThumbnailImageKey = (fileType: string): string => {
-  return thumbnailMap[fileType] || 'public/thumbnails/default.png';
+  return thumbnailMap[fileType] || '/thumbnails/default.png';
 };
+
+
+const planToStorageMap: Record<string, bigint> = {
+  "1y" : BigInt(10 * 1024 * 1024 * 1024), //10GB
+  "6m" : BigInt(10 * 1024 * 1024 * 1024), //10GB
+  "extra5GB" : BigInt(5 * 1024 * 1024 * 1024), //5GB
+}
+
+export const getStorageByPlan = (plan: string): bigint => {
+  return planToStorageMap[plan]
+}
