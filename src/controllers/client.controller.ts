@@ -27,8 +27,8 @@ export const getClients = TryCatch(async (req, res, next) => {
     const rawCursorId = req.query.cursorId;
     const nameSearch = req.query.search as string | undefined;
     const statusFilter = req.query.status as string | undefined;
-    const feesStatusFilter = req.query.feeStatus as string | undefined; // Pending, Paid, Overdue
-    const sortBy = req.query.sortBy as string | undefined; // pending fees, name
+    const feesStatusFilter = req.query.feeStatus as string | undefined; // Pending, Paid
+    const sortBy = req.query.sortBy as string | undefined; // pendingPayment, name, createdAt
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
     let cursor;
@@ -52,26 +52,28 @@ export const getClients = TryCatch(async (req, res, next) => {
         where.status = statusFilter;
     }
 
-    if (feesStatusFilter) {
-        where.fees = {
-            some: {
-                status: feesStatusFilter
-            }
-        };
-    }
+    // Note: We'll handle payment status filtering after calculating pending fees
+    // because it's a computed field, not a direct database field
 
-    // Build orderBy
+    // Build orderBy - For pending payment sort, we'll handle it after fetching
     let orderBy: any[] = [];
     if (sortBy === "name") {
         orderBy.push({ name: sortOrder });
+    } else if (sortBy === "pendingPayment") {
+        // We'll sort this after calculating pending payments
+        orderBy.push({ createdAt: "desc" }); // Default order for now
     } else {
         orderBy.push({ createdAt: sortOrder });
     }
     orderBy.push({ id: "desc" }); // tie breaker
 
+    // For pending payment sort or payment status filter, we need more data
+    const needsPostProcessing = sortBy === "pendingPayment" || feesStatusFilter;
+    const fetchLimit = needsPostProcessing ? limit * 3 : limit + 1;
+
     const clients = await db.client.findMany({
         where,
-        take: limit + 1,
+        take: fetchLimit,
         cursor,
         skip: cursor ? 1 : 0,
         orderBy,
@@ -80,22 +82,81 @@ export const getClients = TryCatch(async (req, res, next) => {
         },
     });
 
-    const hasNextPage = clients.length > limit;
-    const paginatedClients = hasNextPage ? clients.slice(0, limit) : clients;
+    // Calculate pending fees for each client
+    let clientsWithPendingFees = clients.map(client => {
+        const pendingFees = client.fees
+            .filter(fee => fee.status === "Pending")
+            .reduce((sum, fee) => sum + fee.amount, 0);
+
+        return {
+            ...client,
+            pendingFees
+        };
+    });
+
+    // Apply payment status filter based on computed pending fees
+    if (feesStatusFilter === "Pending") {
+        clientsWithPendingFees = clientsWithPendingFees.filter(client => client.pendingFees > 0);
+    } else if (feesStatusFilter === "Paid") {
+        clientsWithPendingFees = clientsWithPendingFees.filter(client => client.pendingFees === 0);
+    }
+
+    // If sorting by pending payment, sort here
+    let sortedClients = clientsWithPendingFees;
+    if (sortBy === "pendingPayment") {
+        sortedClients = clientsWithPendingFees.sort((a, b) => {
+            if (sortOrder === "asc") {
+                return a.pendingFees - b.pendingFees;
+            } else {
+                return b.pendingFees - a.pendingFees;
+            }
+        });
+    }
+
+    // Apply pagination after filtering and sorting
+    const hasNextPage = sortedClients.length > limit;
+    const paginatedClients = hasNextPage ? sortedClients.slice(0, limit) : sortedClients;
 
     const lastClient = hasNextPage ? paginatedClients[paginatedClients.length - 1] : null;
     const nextCursor = lastClient
         ? { createdAt: lastClient.createdAt, id: lastClient.id }
         : undefined;
 
+    // Calculate total pending fees
+    let totalPendingFees = 0;
+    paginatedClients.forEach(client => {
+        totalPendingFees += client.pendingFees;
+    });
+
+    // Format response data
+    const clientsResponse = paginatedClients.map(client => ({
+        id: client.id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+        status: client.status,
+        pendingFees: client.pendingFees,
+        createdAt: client.createdAt
+    }));
+
     res.status(200).json({
         success: true,
         message: "Clients fetched successfully",
-        clients: paginatedClients,
-        nextCursor
+        clients: clientsResponse,
+        nextCursor,
+        totalPendingFees,
+        meta: {
+            sortBy,
+            sortOrder,
+            feesStatusFilter,
+            hasFilters: !!(nameSearch || statusFilter || feesStatusFilter),
+            // Add warning when sorting by pending payment with "Paid" filter
+            sortWarning: feesStatusFilter === "Paid" && sortBy === "pendingPayment" 
+                ? "All clients have $0 pending - sort by name or date instead" 
+                : null
+        }
     });
 });
-
 export const getClientsSortedByFees = TryCatch(async (req, res, next) => {
     const userId = req.user?.id;
     const limit = 2;
@@ -209,11 +270,11 @@ export const addClient = TryCatch(async (req, res, next) => {
         client: newClient,
     });
 });
+// import { isBefore } from "date-fns";
 
 export const getClientById = TryCatch(async (req, res, next) => {
-    console.log("getting client by ID")
     const { id } = req.params;
-    const userId = req.user?.id; // Assuming user ID is stored in req.user by authentication middleware
+    const userId = req.user?.id;
 
     if (!userId) {
         return next(new ErrorHandler("Unauthorized: User ID not found", 401));
@@ -223,28 +284,61 @@ export const getClientById = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Invalid input types", 400));
     }
 
+    // Fetch only basic client info
     const client = await db.client.findUnique({
-        where: {
-            id: id,
-            caId: userId,
+        where: { id, caId: userId },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            storageUsed: true,
+            createdAt: true,
         },
-        include: {
-            fees: true, // Include fees related to the client
-            documents: true, // Include documents related to the client
-        },
-
     });
 
     if (!client) {
         return next(new ErrorHandler("Client not found", 404));
     }
 
+    // Fetch fees and process
+    const allFees = await db.pendingFees.findMany({
+        where: { clientId: id },
+        select: { status: true, dueDate: true, amount: true },
+    });
+
+    const today = new Date();
+
+    let pendingFeesAmount = 0;
+    let paidFeesAmount = 0;
+    // let overdueFeesAmount = 0;
+
+    for (const fee of allFees) {
+        if (fee.status === "Paid") {
+            paidFeesAmount += fee.amount;
+        }
+
+        if (fee.status === "Pending") {
+            //   pendingFeesCount++;
+            pendingFeesAmount += fee.amount;
+        }
+    }
+
     res.status(200).json({
         success: true,
-        message: "Client fetched successfully",
+        message: "Client summary fetched successfully",
         client,
+        summary: {
+            totalFeesCount: allFees.length,
+            // pendingFeesCount,
+            pendingFeesAmount: pendingFeesAmount ,
+            paidFeesAmount,
+            // overdueFeesCount,
+            // totalStorageUsedBytes,
+        },
     });
-})
+});
+
 
 export const updateClient = TryCatch(async (req, res, next) => {
     const { id } = req.params;
@@ -316,48 +410,170 @@ export const deleteClient = TryCatch(async (req, res, next) => {
     });
 });
 
+// Updated and optimized Express.js API functions for fees management
+
 export const getFeeRecords = TryCatch(async (req, res, next) => {
-    const { id } = req.params;
+    const { id } = req.params; // Client ID
     const userId = req.user?.id;
+
+    // Query parameters for pagination, search, and filtering
+    const {
+        cursor,
+        limit = '10',
+        search,
+        status,
+        page = '1'
+    } = req.query;
 
     if (!userId) {
         return next(new ErrorHandler("Unauthorized: User ID not found", 401));
     }
 
     if (!id) {
-        return next(new ErrorHandler("Fee record ID is required", 400));
+        return next(new ErrorHandler("Client ID is required", 400));
     }
 
     if (typeof userId !== 'string' || typeof id !== 'string') {
         return next(new ErrorHandler("Invalid input types", 400));
     }
 
-    const feeRecord = await db.pendingFees.findMany({
+    // Verify client belongs to the CA
+    const clientExists = await db.client.findUnique({
         where: {
-            clientId: id,
-            client: {
-                caId: userId,
-            },
+            id: id,
+            caId: userId,
         },
     });
-    console.log("Fee Record:", feeRecord);
-    if (!feeRecord) {
-        return next(new ErrorHandler("Fee record not found", 404));
+
+    if (!clientExists) {
+        return next(new ErrorHandler("Client not found or unauthorized", 404));
     }
 
-    res.status(200).json({
-        success: true,
-        message: "Fee record fetched successfully",
-        feeRecord,
-    });
-})
+    // Build where clause for filtering
+    let whereClause: any = {
+        clientId: id,
+        client: {
+            caId: userId,
+        },
+    };
+
+    // Add search functionality
+    if (search && typeof search === 'string') {
+        whereClause.OR = [
+            { note: { contains: search, mode: 'insensitive' } },
+            // Search by amount (convert search to number if possible)
+            ...(isNaN(Number(search)) ? [] : [{ amount: { equals: parseFloat(search) } }])
+        ];
+    }
+
+    // Add status filtering
+    if (status && typeof status === 'string') {
+        if (status === 'pending') {
+            whereClause.status = { in: ['Pending'] };
+        } else if (status === 'paid') {
+            whereClause.status = 'Paid';
+        }
+    }
+
+    try {
+        const limitNum = Math.min(parseInt(limit as string) || 10, 50); // Max 50 records per request
+
+        // For cursor-based pagination
+        const queryOptions: any = {
+            where: whereClause,
+            take: limitNum + 1, // Take one extra to check if there are more
+            orderBy: [
+                { createdAt: 'desc' },
+                { id: 'desc' }
+            ],
+        };
+
+        // Add cursor for pagination if provided
+        if (cursor && typeof cursor === 'string') {
+            queryOptions.cursor = { id: cursor };
+            queryOptions.skip = 1; // Skip the cursor record
+        }
+
+        const feeRecord = await db.pendingFees.findMany(queryOptions);
+
+        const now = new Date();
+
+        const feeRecords = feeRecord.map(fee => {
+            if (fee.status === 'Pending' && new Date(fee.dueDate) < now) {
+                return { ...fee, status: 'Overdue' };
+            }
+            return fee;
+        });
+
+
+        // Check if there are more records
+        const hasMore = feeRecords.length > limitNum;
+        const data = hasMore ? feeRecords.slice(0, -1) : feeRecords;
+        const nextCursor = hasMore ? data[data.length - 1]?.id : null;
+
+        // Calculate summary statistics
+        const allFees = await db.pendingFees.findMany({
+            where: {
+                clientId: id,
+                client: { caId: userId }
+            },
+            select: {
+                amount: true,
+                status: true,
+                dueDate: true,
+            }
+        });
+
+        const summary = allFees.reduce((acc, fee) => {
+            acc.totalFees += 1;
+            if (fee.status === 'Paid') {
+                acc.totalReceived += fee.amount;
+            } else if (fee.status === 'Pending' && new Date(fee.dueDate) < now) {
+                acc.totalOverdue += fee.amount;
+            } else if (fee.status === 'Pending') {
+                acc.totalPending += fee.amount;
+            }
+
+            return acc;
+        }, {
+            totalReceived: 0,
+            totalPending: 0,
+            totalOverdue: 0,
+            totalFees: 0
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Fee records fetched successfully",
+            data: data,
+            nextCursor,
+            hasMore,
+            summary,
+            pagination: {
+                currentPage: parseInt(page as string) || 1,
+                limit: limitNum,
+                total: allFees.length
+            }
+        });
+
+    } catch (error) {
+        console.error("Error fetching fee records:", error);
+        return next(new ErrorHandler("Failed to fetch fee records", 500));
+    }
+});
 
 export const addFeeRecord = TryCatch(async (req, res, next) => {
-    console.log("hitted addFeeRecord")
+    console.log("Hit addFeeRecord");
     const { id } = req.params; // Client ID
     const userId = req.user?.id;
 
-    const { amount, note, dueDate, status = 'Pending', } = req.body;
+    const {
+        amount,
+        note,
+        dueDate,
+        status = 'Pending',
+        paymentDate
+    } = req.body;
 
     if (!id) {
         return next(new ErrorHandler("Client ID is required", 400));
@@ -370,46 +586,87 @@ export const addFeeRecord = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Amount and due date are required", 400));
     }
 
-    const isClientExists = await db.client.findUnique({
-        where: {
-            id: id,
-            caId: userId,
-        },
-    });
-
-    if (!isClientExists) {
-        return next(new ErrorHandler("Client not found", 404));
+    // Validate amount
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return next(new ErrorHandler("Amount must be a positive number", 400));
     }
 
-    const response = await db.pendingFees.create({
-        data: {
-            amount: parseFloat(amount),
-            note,
-            dueDate: new Date(dueDate),
-            status,
-            client: {
-                connect: {
-                    id: id,
-                    caId: userId,
-                },
+    // Validate status
+    const validStatuses = ['Pending', 'Paid'];
+    if (!validStatuses.includes(status)) {
+        return next(new ErrorHandler("Invalid status. Must be Pending, Paid, or Overdue", 400));
+    }
+
+    // Validate dates
+    const parsedDueDate = new Date(dueDate);
+    if (isNaN(parsedDueDate.getTime())) {
+        return next(new ErrorHandler("Invalid due date format", 400));
+    }
+
+    let parsedPaymentDate = null;
+    if (paymentDate) {
+        parsedPaymentDate = new Date(paymentDate);
+        if (isNaN(parsedPaymentDate.getTime())) {
+            return next(new ErrorHandler("Invalid payment date format", 400));
+        }
+    }
+
+    // Auto-set payment date if status is Paid and no payment date provided
+    if (status === 'Paid' && !paymentDate) {
+        parsedPaymentDate = new Date();
+    }
+
+    try {
+        // Verify client exists and belongs to CA
+        const isClientExists = await db.client.findUnique({
+            where: {
+                id: id,
+                caId: userId,
             },
-        },
-    });
+        });
 
-    res.status(201).json({
-        success: true,
-        message: "Fee record added successfully",
-        feeRecord: response,
-    });
+        if (!isClientExists) {
+            return next(new ErrorHandler("Client not found or unauthorized", 404));
+        }
 
-})
+        const response = await db.pendingFees.create({
+            data: {
+                amount: parsedAmount,
+                note: note?.trim() || null,
+                dueDate: parsedDueDate,
+                status,
+                paymentDate: parsedPaymentDate,
+                clientId: id, // Direct assignment instead of connect
+            },
+        });
+
+        res.status(201).json({
+            success: true,
+            message: "Fee record added successfully",
+            feeRecord: response,
+        });
+
+    } catch (error) {
+        console.error("Error adding fee record:", error);
+        return next(new ErrorHandler("Failed to add fee record", 500));
+    }
+});
 
 export const updateFeeRecord = TryCatch(async (req, res, next) => {
-    const { id, feeId } = req.params; // Client ID
+    const { id, feeId } = req.params; // Client ID and Fee ID
     const userId = req.user?.id;
-    console.log("FeeId", feeId);
-    console.log("Id", id);
-    const { amount, note, dueDate, status = 'Pending', paymentDate } = req.body;
+
+    console.log("FeeId:", feeId);
+    console.log("ClientId:", id);
+
+    const {
+        amount,
+        note,
+        dueDate,
+        status = 'Pending',
+        paymentDate
+    } = req.body;
 
     if (!id) {
         return next(new ErrorHandler("Client ID is required", 400));
@@ -425,36 +682,197 @@ export const updateFeeRecord = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Amount and due date are required", 400));
     }
 
-    const isFeeRecordExists = await db.pendingFees.findUnique({
-        where: {
-            id: feeId,
-            clientId: id,
-        },
-    });
-
-    if (!isFeeRecordExists) {
-        return next(new ErrorHandler("Fee record not found", 404));
+    // Validate amount
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return next(new ErrorHandler("Amount must be a positive number", 400));
     }
 
-    const response = await db.pendingFees.update({
-        where: {
-            id: feeId,
-        },
-        data: {
-            amount: parseFloat(amount),
-            note,
-            dueDate: new Date(dueDate),
-            status,
-            paymentDate: paymentDate ? new Date(paymentDate) : null, // Optional field
-        },
-    });
+    // Validate status
+    const validStatuses = ['Pending', 'Paid'];
+    if (!validStatuses.includes(status)) {
+        return next(new ErrorHandler("Invalid status. Must be Pending or Paid", 400));
+    }
 
-    res.status(200).json({
-        success: true,
-        message: "Fee record updated successfully",
-        feeRecord: response,
-    })
-})
+    // Validate dates
+    const parsedDueDate = new Date(dueDate);
+    if (isNaN(parsedDueDate.getTime())) {
+        return next(new ErrorHandler("Invalid due date format", 400));
+    }
+
+    let parsedPaymentDate = null;
+    if (paymentDate) {
+        parsedPaymentDate = new Date(paymentDate);
+        if (isNaN(parsedPaymentDate.getTime())) {
+            return next(new ErrorHandler("Invalid payment date format", 400));
+        }
+    }
+
+    try {
+        // Verify fee record exists and belongs to the CA's client
+        const isFeeRecordExists = await db.pendingFees.findFirst({
+            where: {
+                id: feeId,
+                clientId: id,
+                client: {
+                    caId: userId,
+                },
+            },
+        });
+
+        if (!isFeeRecordExists) {
+            return next(new ErrorHandler("Fee record not found or unauthorized", 404));
+        }
+
+        // Auto-set payment date if status is changed to Paid and no payment date provided
+        if (status === 'Paid' && !paymentDate && !isFeeRecordExists.paymentDate) {
+            parsedPaymentDate = new Date();
+        }
+
+        // Clear payment date if status is changed from Paid to Pending/Overdue
+        if (status !== 'Paid' && isFeeRecordExists.status === 'Paid') {
+            parsedPaymentDate = null;
+        }
+
+        const response = await db.pendingFees.update({
+            where: {
+                id: feeId,
+            },
+            data: {
+                amount: parsedAmount,
+                note: note?.trim() || null,
+                dueDate: parsedDueDate,
+                status,
+                paymentDate: parsedPaymentDate,
+            },
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Fee record updated successfully",
+            feeRecord: response,
+        });
+
+    } catch (error) {
+        console.error("Error updating fee record:", error);
+        return next(new ErrorHandler("Failed to update fee record", 500));
+    }
+});
+
+export const deleteFeeRecord = TryCatch(async (req, res, next) => {
+    const { id, feeId } = req.params; // Client ID and Fee ID
+    const userId = req.user?.id;
+
+    if (!id) {
+        return next(new ErrorHandler("Client ID is required", 400));
+    }
+    if (!feeId) {
+        return next(new ErrorHandler("Fee record ID is required", 400));
+    }
+    if (!userId) {
+        return next(new ErrorHandler("Unauthorized: User ID not found", 401));
+    }
+
+    try {
+        // Verify fee record exists and belongs to the CA's client
+        const isFeeRecordExists = await db.pendingFees.findFirst({
+            where: {
+                id: feeId,
+                clientId: id,
+                client: {
+                    caId: userId,
+                },
+            },
+        });
+
+        if (!isFeeRecordExists) {
+            return next(new ErrorHandler("Fee record not found or unauthorized", 404));
+        }
+
+        await db.pendingFees.delete({
+            where: {
+                id: feeId,
+            },
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Fee record deleted successfully",
+        });
+
+    } catch (error) {
+        console.error("Error deleting fee record:", error);
+        return next(new ErrorHandler("Failed to delete fee record", 500));
+    }
+});
+
+// Additional utility function for getting fee statistics
+export const getFeeStatistics = TryCatch(async (req, res, next) => {
+    const { id } = req.params; // Client ID
+    const userId = req.user?.id;
+
+    if (!userId) {
+        return next(new ErrorHandler("Unauthorized: User ID not found", 401));
+    }
+
+    if (!id) {
+        return next(new ErrorHandler("Client ID is required", 400));
+    }
+
+    try {
+        // Verify client belongs to the CA
+        const clientExists = await db.client.findUnique({
+            where: {
+                id: id,
+                caId: userId,
+            },
+        });
+
+        if (!clientExists) {
+            return next(new ErrorHandler("Client not found or unauthorized", 404));
+        }
+
+        const stats = await db.pendingFees.groupBy({
+            by: ['status'],
+            where: {
+                clientId: id,
+                client: { caId: userId }
+            },
+            _sum: {
+                amount: true
+            },
+            _count: {
+                id: true
+            }
+        });
+
+        type StatusKey = 'pending' | 'paid';
+        const summary = stats.reduce((acc, stat) => {
+            const key = stat.status.toLowerCase() as StatusKey;
+            if (key === 'pending' || key === 'paid') {
+                acc[key] = {
+                    count: stat._count.id,
+                    amount: stat._sum.amount || 0
+                };
+            }
+            return acc;
+        }, {
+            pending: { count: 0, amount: 0 },
+            paid: { count: 0, amount: 0 },
+            overdue: { count: 0, amount: 0 }
+        } as Record<StatusKey, { count: number; amount: number }>);
+
+        res.status(200).json({
+            success: true,
+            message: "Fee statistics fetched successfully",
+            statistics: summary
+        });
+
+    } catch (error) {
+        console.error("Error fetching fee statistics:", error);
+        return next(new ErrorHandler("Failed to fetch fee statistics", 500));
+    }
+});
 
 
 export const uploadDocMetaData = TryCatch(async (req, res, next) => {
@@ -494,7 +912,7 @@ export const uploadDocMetaData = TryCatch(async (req, res, next) => {
     } else if (fileType != 'pdf') {
         thumbnailKey = getThumbnailImageKey(fileType);
     }
-    
+
     await db.$transaction(async (tx) => {
         await tx.document.create({
             data: {

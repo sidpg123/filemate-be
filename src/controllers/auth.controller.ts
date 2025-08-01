@@ -82,7 +82,7 @@ export const googleLogin = TryCatch(async (req, res, next) => {
   if(user) {
     // User exists, generate tokens
     const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "15m",
+      expiresIn: "7d",
     });
     const refreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
