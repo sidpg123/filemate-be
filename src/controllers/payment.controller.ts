@@ -91,7 +91,7 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
                 razorpay_order_id,
                 razorpay_payment_id,
                 razorpay_signature,
-                status: 'Active',
+                status: 'active',
                 expiresAt: new Date(expiresAt!),
                 createdAt: new Date(),
             }

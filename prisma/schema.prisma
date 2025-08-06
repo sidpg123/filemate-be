@@ -99,12 +99,8 @@ model Client {
   name        String
   email       String?  @unique
   role        Role     @default(Client) // Default role for clients
-  // password    String?
   phone       String?
-  // aadharNo    String        @unique @map("aadhar_no")
   status      String   @default("active") // e.g., 'active', 'inactive', 'archived'
-  // panNo       String        @unique @map("pan_no")
-  // address     String
   storageUsed BigInt   @default(0) @map("storage_used") // in MB
   createdAt   DateTime @default(now())
   ca        User          @relation(fields: [caId], references: [id], onDelete: Cascade)
@@ -137,13 +133,14 @@ model UserDocument {
   fileName        String
   fileKey         String
   thumbnailKey    String?
+  year            String
   fileSize        Float
   uploadedAt      DateTime    @default(now())
   categoryId      String?     @map("category_id")
-  category        FileCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   visibleToAdmin  Boolean     @default(true) // if you ever add Admin viewing user files
 
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        FileCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@index([userId, categoryId])
 }

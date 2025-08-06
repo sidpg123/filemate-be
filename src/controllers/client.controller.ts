@@ -293,6 +293,7 @@ export const getClientById = TryCatch(async (req, res, next) => {
             name: true,
             email: true,
             phone: true,
+            status: true,
             storageUsed: true,
             createdAt: true,
         },
@@ -353,7 +354,7 @@ export const updateClient = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Invalid input types", 400));
     }
 
-    const { name, email, phone, address } = req.body;
+    const { name, email, phone, status } = req.body;
 
     if (!name || !email || !phone) {
         return res.status(400).json({
@@ -371,6 +372,7 @@ export const updateClient = TryCatch(async (req, res, next) => {
             name,
             email,
             phone,
+            status
         },
     });
 

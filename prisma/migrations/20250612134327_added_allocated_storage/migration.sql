@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE "User" ADD COLUMN     "allocatedStorage" DOUBLE PRECISION NOT NULL DEFAULT 1;
