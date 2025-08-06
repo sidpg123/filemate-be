@@ -170,14 +170,12 @@ export const register = TryCatch(async (req, res, next) => {
 
 
 export const refreshToken = TryCatch(async (req, res, next) => {
-  let  refreshToken  = req.headers.authorization;
+  let refreshToken = req.headers.authorization;
 
   if (refreshToken && refreshToken.startsWith("Bearer ")) {
-    // Remove "Bearer " 
     refreshToken = refreshToken.split(" ")[1];
   }
 
-  console.log("hitted in refresh")
   if (!refreshToken) {
     return res.status(401).json({
       success: false,
@@ -185,20 +183,21 @@ export const refreshToken = TryCatch(async (req, res, next) => {
     });
   }
 
-  try {
-    const decoded = jwt.verify(refreshToken, JWT_SECRET);
-    console.log("type:", typeof decoded);
-    if (typeof decoded === 'string') {
-      return res.status(403).json({
-        success: false,
-        message: "Invalid token format",
-      });
-    }
+  // Decode without verifying expiration
+  const decoded = jwt.decode(refreshToken) as jwt.JwtPayload | null;
 
-    if(!decoded || !decoded.id) {
-      return next(new ErrorHandler("Invalid token payload", 403));
-    }
-    // Now TypeScript knows decoded is JwtPayload
+  if (!decoded || typeof decoded === "string" || !decoded.id) {
+    return res.status(403).json({
+      success: false,
+      message: "Invalid refresh token",
+    });
+  }
+
+  try {
+    // You can optionally verify token signature, ignoring expiration
+    jwt.verify(refreshToken, JWT_SECRET, { ignoreExpiration: true });
+
+    // Check if user exists
     const user = await db.user.findUnique({
       where: { id: decoded.id },
     });
@@ -210,9 +209,7 @@ export const refreshToken = TryCatch(async (req, res, next) => {
       });
     }
 
-    // Optional: Check if this refresh token is still valid (if you're storing them in DB)
-
-    // // Generate new tokens
+    // Generate new tokens
     const newAccessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
     });
@@ -220,23 +217,23 @@ export const refreshToken = TryCatch(async (req, res, next) => {
     const newRefreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
     });
+    
+    console.log("newAccessToken in backend", newAccessToken);
+    console.log("newRefreshToken in backend", newRefreshToken);
 
-    console.log("newAcessToken", newAccessToken)
-    console.log("newRefreshToken", newRefreshToken)
 
-    // Optional: Save new refresh token in DB and delete the old one
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Token refreshed successfully",
       accessToken: newAccessToken,
-      refreshToken: newRefreshToken, // rotation
+      refreshToken: newRefreshToken,
     });
+
   } catch (err) {
-    console.log(err);
+    console.log("Refresh token invalid:", err);
     return res.status(403).json({
       success: false,
-      message: "Invalid or expired refresh token",
+      message: "Invalid refresh token",
     });
   }
 });

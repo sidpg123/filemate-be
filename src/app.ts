@@ -9,6 +9,7 @@ import clientRoutes from './routes/client';
 import paymentRoutes from './routes/payment';
 import userRoutes from './routes/user';
 import s3Routes from './routes/s3.route'; // Importing S3 routes
+import adminRoutes from './routes/admin.route'
 // Load environment variables
 dotenv.config({
     path: './.env'  
@@ -34,6 +35,7 @@ app.use("/api/v1/clients", clientRoutes )
 app.use("/api/v1/payment", paymentRoutes )
 app.use("/api/v1/user", userRoutes );
 app.use("/api/v1/s3", s3Routes); // Importing S3 routes
+app.use("/api/v1/admin", adminRoutes)
 
 app.use(errorMiddleware);
 

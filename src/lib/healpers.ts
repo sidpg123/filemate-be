@@ -33,9 +33,9 @@ export const getThumbnailImageKey = (fileType: string): string => {
 
 
 const planToStorageMap: Record<string, bigint> = {
-  "1y" : BigInt(10 * 1024 * 1024 * 1024), //10GB
-  "6m" : BigInt(10 * 1024 * 1024 * 1024), //10GB
-  "extra5GB" : BigInt(5 * 1024 * 1024 * 1024), //5GB
+  "e77dbc82-7325-4823-b3bc-1e8d4675946c" : BigInt(10 * 1024 * 1024 * 1024), //10GB
+  "83f76a56-bf26-4d93-920e-31f9b6e425fd" : BigInt(10 * 1024 * 1024 * 1024), //10GB
+  "925463d3-b270-45b5-8974-944427991663" : BigInt(5 * 1024 * 1024 ), //500 MB
 }
 
 export const getStorageByPlan = (plan: string): bigint => {

@@ -50,30 +50,32 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
     if (!isAuthentic) return next(new ErrorHandler("Payment verification failed", 400));
 
     const razorpayOrder = await instance.orders.fetch(razorpay_order_id);
-    const planName = razorpayOrder.notes?.plan || "Unknown";
+    const planId = razorpayOrder.notes?.plan || "Unknown";
     const userId = razorpayOrder.notes?.userId || "Unknown";
     const expiresAt = razorpayOrder.notes?.expiresAt;
 
-    if (!planName || !userId || !expiresAt) {
+    if (!planId || !userId || !expiresAt) {
         return next(new ErrorHandler("Invalid payment metadata", 400));
     }
+
+    console.log("planId", planId);
     // console.log("creating subscription");
 
     // console.log("Subscription created")
     await db.$transaction(async (tx) => {
-        
+
         const user = await tx.user.findUnique({
             where: {
                 id: userId as string,
             },
-            select: { storageUsed: true, allocatedStorage: true}
+            select: { storageUsed: true, allocatedStorage: true }
         })
-        
-        if (!user) throw new ErrorHandler("User not found", 404);
-        
-        const storageAllocated = getStorageByPlan(planName as string) + BigInt(user?.allocatedStorage!);
 
-        const userUpdated = await tx.user.update({
+        if (!user) throw new ErrorHandler("User not found", 404);
+
+        const storageAllocated = BigInt(getStorageByPlan(planId as string)) + BigInt(user?.allocatedStorage!);
+
+        await tx.user.update({
             where: {
                 id: userId as string
             },
@@ -85,11 +87,11 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
         await db.subscription.create({
             data: {
                 userId: userId as string,
-                plan: planName as string,
+                planId: planId as string,
                 razorpay_order_id,
                 razorpay_payment_id,
                 razorpay_signature,
-                status: 'success',
+                status: 'Active',
                 expiresAt: new Date(expiresAt!),
                 createdAt: new Date(),
             }
@@ -116,6 +118,26 @@ export const getSubscription = TryCatch(async (req, res, next) => {
     const subscription = await db.subscription.findFirst({
         where: {
             userId: userId as string
+        },
+        select: {
+            id: true,
+            planId: true,
+            status: true,
+            razorpay_order_id: true,
+            razorpay_payment_id: true,
+            razorpay_signature: true,
+            startDate: true,
+            expiresAt: true,
+            createdAt: true,
+            cancelledAt: true,
+            plan: {
+                select: {
+                    name: true,
+                    displayName: true,
+                    features: true,
+                    price: true,
+                }
+            }
         }
     });
 

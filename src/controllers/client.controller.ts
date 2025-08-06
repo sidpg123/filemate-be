@@ -151,75 +151,76 @@ export const getClients = TryCatch(async (req, res, next) => {
             feesStatusFilter,
             hasFilters: !!(nameSearch || statusFilter || feesStatusFilter),
             // Add warning when sorting by pending payment with "Paid" filter
-            sortWarning: feesStatusFilter === "Paid" && sortBy === "pendingPayment" 
-                ? "All clients have $0 pending - sort by name or date instead" 
+            sortWarning: feesStatusFilter === "Paid" && sortBy === "pendingPayment"
+                ? "All clients have $0 pending - sort by name or date instead"
                 : null
         }
     });
 });
-export const getClientsSortedByFees = TryCatch(async (req, res, next) => {
-    const userId = req.user?.id;
-    const limit = 2;
-    const cursorId = req.query.cursorId as string | undefined;
 
-    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+// export const getClientsSortedByFees = TryCatch(async (req, res, next) => {
+//     const userId = req.user?.id;
+//     const limit = 2;
+//     const cursorId = req.query.cursorId as string | undefined;
 
-    // Step 1: Get all grouped + sorted clientIds (simulate cursor)
-    const allFeeGroups = await db.pendingFees.groupBy({
-        by: ["clientId"],
-        where: {
-            client: {
-                caId: userId,
-            },
-            status: "Pending",
-        },
-        _sum: {
-            amount: true,
-        },
-        orderBy: {
-            _sum: { amount: sortOrder },
-        },
-    });
+//     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
-    // Step 2: Find cursor index
-    let startIndex = 0;
-    if (cursorId) {
-        const index = allFeeGroups.findIndex((f) => f.clientId === cursorId);
-        if (index !== -1) {
-            startIndex = index + 1;
-        }
-    }
+//     // Step 1: Get all grouped + sorted clientIds (simulate cursor)
+//     const allFeeGroups = await db.pendingFees.groupBy({
+//         by: ["clientId"],
+//         where: {
+//             client: {
+//                 caId: userId,
+//             },
+//             status: "Pending",
+//         },
+//         _sum: {
+//             amount: true,
+//         },
+//         orderBy: {
+//             _sum: { amount: sortOrder },
+//         },
+//     });
 
-    const paginatedFeeGroups = allFeeGroups.slice(startIndex, startIndex + limit);
-    const hasNextPage = startIndex + limit < allFeeGroups.length;
-    const nextCursor = hasNextPage
-        ? allFeeGroups[startIndex + limit]?.clientId
-        : null;
+//     // Step 2: Find cursor index
+//     let startIndex = 0;
+//     if (cursorId) {
+//         const index = allFeeGroups.findIndex((f) => f.clientId === cursorId);
+//         if (index !== -1) {
+//             startIndex = index + 1;
+//         }
+//     }
 
-    // Step 3: Fetch clients by ID
-    const clientIds = paginatedFeeGroups.map((g) => g.clientId);
+//     const paginatedFeeGroups = allFeeGroups.slice(startIndex, startIndex + limit);
+//     const hasNextPage = startIndex + limit < allFeeGroups.length;
+//     const nextCursor = hasNextPage
+//         ? allFeeGroups[startIndex + limit]?.clientId
+//         : null;
 
-    const clients = await db.client.findMany({
-        where: {
-            id: { in: clientIds },
-        },
-        include: {
-            fees: true,
-        },
-    });
+//     // Step 3: Fetch clients by ID
+//     const clientIds = paginatedFeeGroups.map((g) => g.clientId);
 
-    // Step 4: Sort clients in the same order as feeGroups
-    const sortedClients = clientIds.map((id) =>
-        clients.find((c) => c.id === id)
-    );
+//     const clients = await db.client.findMany({
+//         where: {
+//             id: { in: clientIds },
+//         },
+//         include: {
+//             fees: true,
+//         },
+//     });
 
-    res.status(200).json({
-        success: true,
-        message: "Clients sorted by pending fees",
-        clients: sortedClients,
-        nextCursor,
-    });
-});
+//     // Step 4: Sort clients in the same order as feeGroups
+//     const sortedClients = clientIds.map((id) =>
+//         clients.find((c) => c.id === id)
+//     );
+
+//     res.status(200).json({
+//         success: true,
+//         message: "Clients sorted by pending fees",
+//         clients: sortedClients,
+//         nextCursor,
+//     });
+// });
 
 
 export const addClient = TryCatch(async (req, res, next) => {
@@ -331,7 +332,7 @@ export const getClientById = TryCatch(async (req, res, next) => {
         summary: {
             totalFeesCount: allFees.length,
             // pendingFeesCount,
-            pendingFeesAmount: pendingFeesAmount ,
+            pendingFeesAmount: pendingFeesAmount,
             paidFeesAmount,
             // overdueFeesCount,
             // totalStorageUsedBytes,
@@ -410,19 +411,19 @@ export const deleteClient = TryCatch(async (req, res, next) => {
     });
 });
 
-// Updated and optimized Express.js API functions for fees management
 
 export const getFeeRecords = TryCatch(async (req, res, next) => {
     const { id } = req.params; // Client ID
     const userId = req.user?.id;
 
-    // Query parameters for pagination, search, and filtering
     const {
-        cursor,
+        cursorId,
+        cursorCreatedAt,
         limit = '10',
         search,
         status,
-        page = '1'
+        page = '1',
+        feeCategoryId
     } = req.query;
 
     if (!userId) {
@@ -437,36 +438,33 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Invalid input types", 400));
     }
 
-    // Verify client belongs to the CA
     const clientExists = await db.client.findUnique({
         where: {
-            id: id,
+            id,
             caId: userId,
         },
     });
 
     if (!clientExists) {
-        return next(new ErrorHandler("Client not found or unauthorized", 404));
+        return next(new ErrorHandler("Client not found or does not belong to you", 404));
     }
 
-    // Build where clause for filtering
     let whereClause: any = {
         clientId: id,
-        client: {
-            caId: userId,
-        },
+        client: { caId: userId }
     };
 
-    // Add search functionality
     if (search && typeof search === 'string') {
         whereClause.OR = [
             { note: { contains: search, mode: 'insensitive' } },
-            // Search by amount (convert search to number if possible)
             ...(isNaN(Number(search)) ? [] : [{ amount: { equals: parseFloat(search) } }])
         ];
     }
 
-    // Add status filtering
+    if (feeCategoryId && typeof feeCategoryId === 'string') {
+        whereClause.feeCategoryId = feeCategoryId;
+    }
+
     if (status && typeof status === 'string') {
         if (status === 'pending') {
             whereClause.status = { in: ['Pending'] };
@@ -476,9 +474,9 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
     }
 
     try {
-        const limitNum = Math.min(parseInt(limit as string) || 10, 50); // Max 50 records per request
+        const limitNum = Math.min(parseInt(limit as string, 10) || 10, 50);
+        const currentPage = parseInt(page as string, 10) || 1;
 
-        // For cursor-based pagination
         const queryOptions: any = {
             where: whereClause,
             take: limitNum + 1, // Take one extra to check if there are more
@@ -486,32 +484,50 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
                 { createdAt: 'desc' },
                 { id: 'desc' }
             ],
+            select: {
+                id: true,
+                amount: true,
+                note: true,
+                dueDate: true,
+                status: true,
+                createdAt: true,
+                feeCategory: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
+            }
         };
 
-        // Add cursor for pagination if provided
-        if (cursor && typeof cursor === 'string') {
-            queryOptions.cursor = { id: cursor };
-            queryOptions.skip = 1; // Skip the cursor record
+        if (cursorId && cursorCreatedAt && typeof cursorId === 'string' && typeof cursorCreatedAt === 'string') {
+            queryOptions.cursor = {
+                createdAt_id: {
+                    createdAt: new Date(cursorCreatedAt),
+                    id: cursorId
+                }
+            };
+            queryOptions.skip = 1;
         }
 
-        const feeRecord = await db.pendingFees.findMany(queryOptions);
+        const feeRecordsRaw = await db.pendingFees.findMany(queryOptions);
 
         const now = new Date();
 
-        const feeRecords = feeRecord.map(fee => {
+        const feeRecords = feeRecordsRaw.map(fee => {
             if (fee.status === 'Pending' && new Date(fee.dueDate) < now) {
                 return { ...fee, status: 'Overdue' };
             }
             return fee;
         });
 
-
-        // Check if there are more records
         const hasMore = feeRecords.length > limitNum;
         const data = hasMore ? feeRecords.slice(0, -1) : feeRecords;
-        const nextCursor = hasMore ? data[data.length - 1]?.id : null;
+        const last = data[data.length - 1];
+        const nextCursor = hasMore
+            ? { cursorId: last?.id, cursorCreatedAt: last?.createdAt }
+            : null;
 
-        // Calculate summary statistics
         const allFees = await db.pendingFees.findMany({
             where: {
                 clientId: id,
@@ -533,7 +549,6 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
             } else if (fee.status === 'Pending') {
                 acc.totalPending += fee.amount;
             }
-
             return acc;
         }, {
             totalReceived: 0,
@@ -545,12 +560,12 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: "Fee records fetched successfully",
-            data: data,
+            data,
             nextCursor,
             hasMore,
             summary,
             pagination: {
-                currentPage: parseInt(page as string) || 1,
+                currentPage,
                 limit: limitNum,
                 total: allFees.length
             }
@@ -562,6 +577,7 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
     }
 });
 
+
 export const addFeeRecord = TryCatch(async (req, res, next) => {
     console.log("Hit addFeeRecord");
     const { id } = req.params; // Client ID
@@ -572,8 +588,11 @@ export const addFeeRecord = TryCatch(async (req, res, next) => {
         note,
         dueDate,
         status = 'Pending',
-        paymentDate
+        paymentDate,
+        feeCategoryId
     } = req.body;
+
+    console.log(req.body)
 
     if (!id) {
         return next(new ErrorHandler("Client ID is required", 400));
@@ -638,6 +657,7 @@ export const addFeeRecord = TryCatch(async (req, res, next) => {
                 status,
                 paymentDate: parsedPaymentDate,
                 clientId: id, // Direct assignment instead of connect
+                feeCategoryId: feeCategoryId ? feeCategoryId : null, // Optional category
             },
         });
 
@@ -665,7 +685,8 @@ export const updateFeeRecord = TryCatch(async (req, res, next) => {
         note,
         dueDate,
         status = 'Pending',
-        paymentDate
+        paymentDate,
+        feeCategoryId
     } = req.body;
 
     if (!id) {
@@ -744,6 +765,8 @@ export const updateFeeRecord = TryCatch(async (req, res, next) => {
                 dueDate: parsedDueDate,
                 status,
                 paymentDate: parsedPaymentDate,
+                feeCategoryId: feeCategoryId
+
             },
         });
 
@@ -789,7 +812,7 @@ export const deleteFeeRecord = TryCatch(async (req, res, next) => {
             return next(new ErrorHandler("Fee record not found or unauthorized", 404));
         }
 
-        await db.pendingFees.delete({
+        const delData = await db.pendingFees.delete({
             where: {
                 id: feeId,
             },
@@ -798,6 +821,7 @@ export const deleteFeeRecord = TryCatch(async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: "Fee record deleted successfully",
+            data: delData
         });
 
     } catch (error) {
@@ -1002,7 +1026,10 @@ export const getDocuments = TryCatch(async (req, res, next) => {
     }
 
     if (yearSearch) {
-        where.year = yearSearch; // Exact match
+        where.year = {
+            contains: yearSearch,
+            mode: "insensitive"
+        } // Exact match
     }
 
     const documents = await db.document.findMany({
