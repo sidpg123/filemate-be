@@ -304,40 +304,65 @@ export const getClientById = TryCatch(async (req, res, next) => {
     }
 
     // Fetch fees and process
-    const allFees = await db.pendingFees.findMany({
-        where: { clientId: id },
-        select: { status: true, dueDate: true, amount: true },
-    });
+    // const allFees = await db.pendingFees.findMany({
+    //     where: { clientId: id },
+    //     select: { 
+    //         status: true, 
+    //         dueDate: true, 
+    //         amount: true 
+    //     },
+    // });
 
     const today = new Date();
 
-    let pendingFeesAmount = 0;
-    let paidFeesAmount = 0;
-    // let overdueFeesAmount = 0;
+    // let pendingFeesAmount = 0;
+    // let paidFeesAmount = 0;
+    // // let overdueFeesAmount = 0;
 
-    for (const fee of allFees) {
-        if (fee.status === "Paid") {
-            paidFeesAmount += fee.amount;
-        }
+    // for (const fee of allFees) {
+    //     if (fee.status === "Paid") {
+    //         paidFeesAmount += fee.amount;
+    //     }
 
-        if (fee.status === "Pending") {
-            //   pendingFeesCount++;
-            pendingFeesAmount += fee.amount;
+    //     if (fee.status === "Pending") {
+    //         //   pendingFeesCount++;
+    //         pendingFeesAmount += fee.amount;
+    //     }
+    // }
+    const allFees = await db.pendingFees.findMany({
+        where: {
+            clientId: id,
+            client: { caId: userId }
+        },
+        select: {
+            amount: true,
+            status: true,
+            dueDate: true,
         }
-    }
+    });
+
+    const summary = allFees.reduce((acc, fee) => {
+        acc.totalFees += 1;
+        if (fee.status === 'Paid') {
+            acc.totalReceived += fee.amount;
+        } else if (fee.status === 'Pending' && new Date(fee.dueDate) < today) {
+            acc.totalOverdue += fee.amount;
+        } else if (fee.status === 'Pending') {
+            acc.totalPending += fee.amount;
+        }
+        return acc;
+    }, {
+        totalReceived: 0,
+        totalPending: 0,
+        totalOverdue: 0,
+        totalFees: 0
+    });
 
     res.status(200).json({
         success: true,
         message: "Client summary fetched successfully",
         client,
-        summary: {
-            totalFeesCount: allFees.length,
-            // pendingFeesCount,
-            pendingFeesAmount: pendingFeesAmount,
-            paidFeesAmount,
-            // overdueFeesCount,
-            // totalStorageUsedBytes,
-        },
+        summary
     });
 });
 
@@ -530,46 +555,17 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
             ? { cursorId: last?.id, cursorCreatedAt: last?.createdAt }
             : null;
 
-        const allFees = await db.pendingFees.findMany({
-            where: {
-                clientId: id,
-                client: { caId: userId }
-            },
-            select: {
-                amount: true,
-                status: true,
-                dueDate: true,
-            }
-        });
-
-        const summary = allFees.reduce((acc, fee) => {
-            acc.totalFees += 1;
-            if (fee.status === 'Paid') {
-                acc.totalReceived += fee.amount;
-            } else if (fee.status === 'Pending' && new Date(fee.dueDate) < now) {
-                acc.totalOverdue += fee.amount;
-            } else if (fee.status === 'Pending') {
-                acc.totalPending += fee.amount;
-            }
-            return acc;
-        }, {
-            totalReceived: 0,
-            totalPending: 0,
-            totalOverdue: 0,
-            totalFees: 0
-        });
-
         res.status(200).json({
             success: true,
             message: "Fee records fetched successfully",
             data,
             nextCursor,
             hasMore,
-            summary,
+            // summary,
             pagination: {
                 currentPage,
                 limit: limitNum,
-                total: allFees.length
+                // total: allFees.length
             }
         });
 

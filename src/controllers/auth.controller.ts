@@ -79,6 +79,13 @@ export const googleLogin = TryCatch(async (req, res, next) => {
     where: { email },
   });
 
+
+  if(!user && !client) {
+    
+    return next(new ErrorHandler("User not found", 404))
+  }
+
+
   if(user) {
     // User exists, generate tokens
     const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {

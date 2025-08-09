@@ -228,7 +228,7 @@ export const getUserDocuments = TryCatch(async (req, res, next) => {
     console.log("fetching documents");
 
     const userId = req.user?.id;
-    const limit = 20;
+    const limit = 1;
     // const { id: clientId } = req.params;
     const nameSearch = req.query.search as string | undefined;
     const yearSearch = req.query.year as string | undefined; // <-- Add this
@@ -278,7 +278,7 @@ export const getUserDocuments = TryCatch(async (req, res, next) => {
 
     const lastDocument = hasNextPage ? paginatedDocuments[paginatedDocuments.length - 1] : null;
 
-    const nextCursor = lastDocument ? { uploadedAt: lastDocument.uploadedAt, id: lastDocument.id } : undefined;
+    const nextCursor = lastDocument ? { uploadedAt: (lastDocument.uploadedAt).toISOString(), id: lastDocument.id } : undefined;
 
     for (const document of paginatedDocuments) {
 
