@@ -20,7 +20,8 @@ import { ErrorHandler } from '../lib/utils';
 import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
 
 export const getClients = TryCatch(async (req, res, next) => {
-    console.log("Fetching clients for user...");
+    // //console.log("Fetching clients for user...");
+    // console.log(req.user);
     const userId = req.user?.id;
     const limit = 30;
     const rawCursorCreatedAt = req.query.cursorCreatedAt;
@@ -224,10 +225,10 @@ export const getClients = TryCatch(async (req, res, next) => {
 
 
 export const addClient = TryCatch(async (req, res, next) => {
-    console.log("Adding new client...");
+    //("Adding new client...");
     const userId = req.user?.id; // Assuming user ID is stored in req.user by authentication middleware
-    console.log("User ID:", userId);
-    console.log("Typeof user ID:", typeof userId);
+    ////console.log("User ID:", userId);
+    ////console.log("Typeof user ID:", typeof userId);
 
     const { name, email, phone, } = req.body;
 
@@ -577,7 +578,7 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
 
 
 export const addFeeRecord = TryCatch(async (req, res, next) => {
-    console.log("Hit addFeeRecord");
+    ////console.log("Hit addFeeRecord");
     const { id } = req.params; // Client ID
     const userId = req.user?.id;
 
@@ -590,7 +591,7 @@ export const addFeeRecord = TryCatch(async (req, res, next) => {
         feeCategoryId
     } = req.body;
 
-    console.log(req.body)
+    ////console.log(req.body)
 
     if (!id) {
         return next(new ErrorHandler("Client ID is required", 400));
@@ -675,8 +676,8 @@ export const updateFeeRecord = TryCatch(async (req, res, next) => {
     const { id, feeId } = req.params; // Client ID and Fee ID
     const userId = req.user?.id;
 
-    console.log("FeeId:", feeId);
-    console.log("ClientId:", id);
+    ////console.log("FeeId:", feeId);
+    ////console.log("ClientId:", id);
 
     const {
         amount,
@@ -899,7 +900,7 @@ export const getFeeStatistics = TryCatch(async (req, res, next) => {
 
 export const uploadDocMetaData = TryCatch(async (req, res, next) => {
     const userId = req.user?.id;
-    console.log("hitted uploadDocMetaDeta")
+    ////console.log("hitted uploadDocMetaDeta")
 
     const { clientId, fileName, fileKey, year, fileSize } = req.body;
     let thumbnailKey = req.body.thumbnailKey || '';
@@ -978,7 +979,7 @@ export const uploadDocMetaData = TryCatch(async (req, res, next) => {
 })
 
 export const getDocuments = TryCatch(async (req, res, next) => {
-    console.log("fetching documents");
+    ////console.log("fetching documents");
 
     const userId = req.user?.id;
     const limit = 10;
@@ -987,8 +988,8 @@ export const getDocuments = TryCatch(async (req, res, next) => {
     const yearSearch = req.query.year as string | undefined; // <-- Add this
     const rawCursorCreatedAt = req.query.cursorUploadedAt;
     const rawCursorId = req.query.cursorId;
-    console.log("clientId: ", clientId);
-    console.log("userId", userId);
+    ////console.log("clientId: ", clientId);
+    ////console.log("userId", userId);
 
     const isClientExists = await db.client.findUnique({
         where: {

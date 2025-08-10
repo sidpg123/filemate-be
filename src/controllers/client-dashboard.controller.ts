@@ -6,8 +6,6 @@ import { ErrorHandler } from '../lib/utils';
 
 export const getDocuments = TryCatch(async (req, res, next) => {
 
-    console.log("fetching documents");
-
     const userId = req.user?.id;
     const limit = 20;
     // const { id: clientId } = req.params;
@@ -15,8 +13,8 @@ export const getDocuments = TryCatch(async (req, res, next) => {
     const yearSearch = req.query.year as string | undefined; // <-- Add this
     const rawCursorCreatedAt = req.query.cursorUploadedAt;
     const rawCursorId = req.query.cursorId;
-    // console.log("clientId: ", clientId);
-    console.log("userId", userId);
+    // //console.log("clientId: ", clientId);
+    //console.log("userId", userId);
 
     let cursor;
     if (rawCursorCreatedAt && rawCursorId) {

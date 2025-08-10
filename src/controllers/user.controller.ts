@@ -70,7 +70,7 @@ export const getFeesCategories = TryCatch(async (req, res) => {
 })
 
 export const createFeeCategory = TryCatch(async (req, res, next) => {
-    // console.log("role", req.user?.role)
+    // //console.log("role", req.user?.role)
     if(!req.user?.id ) {
         return next(new ErrorHandler("Unauthorized", 401));
     }
@@ -171,7 +171,7 @@ export const deleteFeeCategory = TryCatch(async (req, res, next) => {
 
 export const uploadUserDocMetaData = TryCatch(async (req, res, next) => {
     const userId = req.user?.id;
-    console.log("hitted uploadDocMetaDeta")
+    //console.log("hitted uploadDocMetaDeta")
 
     const { fileName, fileKey, year, fileSize } = req.body;
     let thumbnailKey = req.body.thumbnailKey || '';
@@ -225,7 +225,7 @@ export const uploadUserDocMetaData = TryCatch(async (req, res, next) => {
 })
 
 export const getUserDocuments = TryCatch(async (req, res, next) => {
-    console.log("fetching documents");
+    //console.log("fetching documents");
 
     const userId = req.user?.id;
     const limit = 1;
@@ -234,8 +234,8 @@ export const getUserDocuments = TryCatch(async (req, res, next) => {
     const yearSearch = req.query.year as string | undefined; // <-- Add this
     const rawCursorCreatedAt = req.query.cursorUploadedAt;
     const rawCursorId = req.query.cursorId;
-    // console.log("clientId: ", clientId);
-    console.log("userId", userId);
+    // //console.log("clientId: ", clientId);
+    //console.log("userId", userId);
 
     let cursor;
     if (rawCursorCreatedAt && rawCursorId) {

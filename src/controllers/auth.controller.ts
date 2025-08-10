@@ -36,16 +36,13 @@ export const login = TryCatch(async (req, res) => {
     });
   }
 
-  console.log(JWT_SECRET)
   // Generate access and refresh tokens
   const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-    expiresIn: "7d",
+    expiresIn: "15m",
   });
   const refreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
     expiresIn: "7d",
   });
-  console.log("hitted");
-  console.log("accessToken in backend", accessToken);
   res.status(200).json({
     success: true,
     message: "Logged in successfully",
@@ -63,8 +60,8 @@ export const login = TryCatch(async (req, res) => {
 
 export const googleLogin = TryCatch(async (req, res, next) => {
   const { email, name, picture } = req.body;
-  console.log("hitted in google login")
-  console.log("req.body", req.body)
+  // //console.log("hitted in google login")
+  // //console.log("req.body", req.body)
 
   if (!email) {
     return next(new ErrorHandler("Email and name are required", 400));
@@ -89,7 +86,7 @@ export const googleLogin = TryCatch(async (req, res, next) => {
   if(user) {
     // User exists, generate tokens
     const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "7d",
+      expiresIn: "15m",
     });
     const refreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
@@ -113,7 +110,7 @@ export const googleLogin = TryCatch(async (req, res, next) => {
   if(client) {
     // Client exists, generate tokens
     const accessToken = jwt.sign({ id: client.id, role: client.role }, JWT_SECRET, {
-      expiresIn: "7d",
+      expiresIn: "15m",
     });
     const refreshToken = jwt.sign({ id: client.id, role: client.role }, JWT_SECRET, {
       expiresIn: "7d",
@@ -139,8 +136,8 @@ export const googleLogin = TryCatch(async (req, res, next) => {
 
 export const register = TryCatch(async (req, res, next) => {
   const { name, email, password } = req.body;
-  console.log("hitted in register")
-  console.log("req.body", req.body)
+  //console.log("hitted in register")
+  //console.log("req.body", req.body)
   if (!name || !email || !password) { 
     return res.status(400).json({
       success: false,
@@ -218,15 +215,15 @@ export const refreshToken = TryCatch(async (req, res, next) => {
 
     // Generate new tokens
     const newAccessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "7d",
+      expiresIn: "15m",
     });
 
     const newRefreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
       expiresIn: "7d",
     });
     
-    console.log("newAccessToken in backend", newAccessToken);
-    console.log("newRefreshToken in backend", newRefreshToken);
+    //console.log("newAccessToken in backend", newAccessToken);
+    //console.log("newRefreshToken in backend", newRefreshToken);
 
 
     return res.status(200).json({
@@ -237,7 +234,7 @@ export const refreshToken = TryCatch(async (req, res, next) => {
     });
 
   } catch (err) {
-    console.log("Refresh token invalid:", err);
+    //console.log("Refresh token invalid:", err);
     return res.status(403).json({
       success: false,
       message: "Invalid refresh token",
@@ -249,11 +246,11 @@ export const refreshToken = TryCatch(async (req, res, next) => {
 
 export const getMyProfile = TryCatch(async (req, res, next) => {
   // const user = await User.findById(req.user);
-  console.log("hited")
+  //console.log("hited")
   // if (!user) return nex t(new ErrorHandler("User not found", 404));
-  // console.log("req.user", req.user);
-  // // console.log("req.header", req.cookies);
-  // console.log("req.headers", req.headers.authorization);
+  // //console.log("req.user", req.user);
+  // // //console.log("req.header", req.cookies);
+  // //console.log("req.headers", req.headers.authorization);
   res.status(200).json({
     success: true,
     message: "Hello"

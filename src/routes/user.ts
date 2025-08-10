@@ -1,10 +1,12 @@
 import express from "express";
 import { isAuthenticated } from "../middlewares/auth.js";
 import { createFeeCategory, deleteFeeCategory, editFeeCategory, getFeesCategories, getUserDocuments, uploadUserDocMetaData, userInfo } from "../controllers/user.controller.js";
+import { authorizeRoles } from "@/middlewares/role.js";
 
 const app = express.Router();
 
 app.use(isAuthenticated)
+app.use(authorizeRoles('CA'))
 app.get('/info', userInfo)
 
 app.get('/fees/categories', getFeesCategories);

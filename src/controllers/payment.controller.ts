@@ -29,9 +29,21 @@ export const checkout = TryCatch(async (req, res, next) => {
     })
 });
 
+export const hasActiveSubscription = TryCatch(async (req, res, next) => {
+    const userId = req.user?.id;
+    const subscription = await db.subscription.findFirst({
+        where: {
+            userId: userId as string,
+            status: 'active'
+        }
+    })
+    res.json({ hasActiveSubscription: !!subscription });
+
+})
+
 export const paymentVerification = TryCatch(async (req, res, next) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    // console.log("Inside paymentVerification")
+    // //console.log("Inside paymentVerification")
     const body = razorpay_order_id + "|" + razorpay_payment_id;
 
 
@@ -39,7 +51,7 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Razorpay API secret is not configured", 500));
     }
 
-    // console.log("Razorpay API secret is configured", process.env.RAZORPAY_KEY_SECRET);      
+    // //console.log("Razorpay API secret is configured", process.env.RAZORPAY_KEY_SECRET);      
     const expectedSignature = crypto
         .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
         .update(body.toString())
@@ -47,7 +59,23 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
 
     const isAuthentic = expectedSignature === razorpay_signature;
 
-    if (!isAuthentic) return next(new ErrorHandler("Payment verification failed", 400));
+    if (!isAuthentic) {
+        console.error("❌ Payment verification failed:", {
+            razorpay_order_id,
+            razorpay_payment_id
+        });
+
+        try {
+            const refund = await instance.payments.refund(razorpay_payment_id, {
+                speed: "optimum" // or "instant" if you have it enabled
+            });
+            console.log("✅ Refund initiated for failed verification:", refund.id);
+        } catch (refundError) {
+            console.error("⚠️ Refund initiation failed:", refundError);
+        }
+
+        return next(new ErrorHandler("Payment verification failed, refund initiated", 400));
+    }
 
     const razorpayOrder = await instance.orders.fetch(razorpay_order_id);
     const planId = razorpayOrder.notes?.plan || "Unknown";
@@ -58,10 +86,10 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Invalid payment metadata", 400));
     }
 
-    console.log("planId", planId);
-    // console.log("creating subscription");
+    //console.log("planId", planId);
+    // //console.log("creating subscription");
 
-    // console.log("Subscription created")
+    // //console.log("Subscription created")
     await db.$transaction(async (tx) => {
 
         const user = await tx.user.findUnique({
@@ -103,7 +131,7 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
 })
 
 export const getRazorpayKey = TryCatch(async (req, res, next) => {
-    console.log("getRazorpayKey called");
+    //console.log("getRazorpayKey called");
     res.status(201).json({
         key: process.env.RAZORPAY_KEY_ID
     })

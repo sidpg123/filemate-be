@@ -1,11 +1,13 @@
 import express from "express";
 import { isAuthenticated } from "../middlewares/auth.js";
 import { getDocuments, getFeeRecords, getTotalPendingFees } from "@/controllers/client-dashboard.controller.js";
+import { authorizeRoles } from "@/middlewares/role.js";
 // import { createFeeCategory, deleteFeeCategory, editFeeCategory, getFeesCategories, userInfo } from "../controllers/user.controller.js";
 
 const app = express.Router();
 
-app.use(isAuthenticated)
+app.use(isAuthenticated);
+app.use(authorizeRoles('Client'))
 // app.use('/creaetPlan', createPlan)
 // app.get('/info')
 app.get('/documents', getDocuments)
