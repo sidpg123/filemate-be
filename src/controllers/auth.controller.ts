@@ -6,6 +6,8 @@ import { userSchema } from "../zodSchemas/user.schema";
 import { ErrorHandler } from "../lib/utils";
 
 const JWT_SECRET = process.env.AUTH_SECRET || "yoursecret";
+const ACCESS_TOKEN_EXPIRY = "15m"; // Increased from 2m
+const REFRESH_TOKEN_EXPIRY = "7d";
 
 export const login = TryCatch(async (req, res) => {
   const { email, password } = req.body;
@@ -36,13 +38,21 @@ export const login = TryCatch(async (req, res) => {
     });
   }
 
-  // Generate access and refresh tokens
-  const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-    expiresIn: "15m",
+  // Generate tokens with consistent payload
+  const tokenPayload = { 
+    id: user.id, 
+    role: user.role,
+    // type: 'user' // Add type to distinguish user vs client
+  };
+
+  const accessToken = jwt.sign(tokenPayload, JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY,
   });
-  const refreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-    expiresIn: "7d",
+  
+  const refreshToken = jwt.sign(tokenPayload, JWT_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRY,
   });
+
   res.status(200).json({
     success: true,
     message: "Logged in successfully",
@@ -51,7 +61,6 @@ export const login = TryCatch(async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      // storageUsed: user.storageUsed,
     },
     accessToken,
     refreshToken,
@@ -59,85 +68,57 @@ export const login = TryCatch(async (req, res) => {
 });
 
 export const googleLogin = TryCatch(async (req, res, next) => {
-  const { email, name, picture } = req.body;
-  // //console.log("hitted in google login")
-  // //console.log("req.body", req.body)
+  const { email } = req.body;
 
   if (!email) {
-    return next(new ErrorHandler("Email and name are required", 400));
+    return next(new ErrorHandler("Email is required", 400));
   }
 
-  // Check if user already exists
-  const user = await db.user.findUnique({
-    where: { email },
+  // Check both user and client tables
+  const [user, client] = await Promise.all([
+    db.user.findUnique({ where: { email } }),
+    db.client.findUnique({ where: { email } })
+  ]);
+
+  if (!user && !client) {
+    return next(new ErrorHandler("User not found", 404));
+  }
+
+  // Determine which account to use
+  const account = user || client;
+//   const accountType = user ? 'user' : 'client';
+
+  const tokenPayload = { 
+    id: account?.id, 
+    role: account?.role,
+    // type: accountType
+  };
+
+  const accessToken = jwt.sign(tokenPayload, JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRY,
+  });
+  
+  const refreshToken = jwt.sign(tokenPayload, JWT_SECRET, {
+    expiresIn: REFRESH_TOKEN_EXPIRY,
   });
 
-  const client = await db.client.findUnique({
-    where: { email },
+  return res.status(200).json({
+    success: true,
+    message: "Logged in successfully",
+    user: {
+      id: account?.id,
+      name: account?.name,
+      email: account?.email,
+      role: account?.role,
+    },
+    accessToken,
+    refreshToken,
   });
-
-
-  if(!user && !client) {
-    
-    return next(new ErrorHandler("User not found", 404))
-  }
-
-
-  if(user) {
-    // User exists, generate tokens
-    const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "15m",
-    });
-    const refreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Logged in successfully",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        // storageUsed: user.storageUsed,
-      },
-      accessToken,
-      refreshToken,
-    });
-  }
-
-  if(client) {
-    // Client exists, generate tokens
-    const accessToken = jwt.sign({ id: client.id, role: client.role }, JWT_SECRET, {
-      expiresIn: "15m",
-    });
-    const refreshToken = jwt.sign({ id: client.id, role: client.role }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Logged in successfully",
-      user: {
-        id: client.id,
-        name: client.name,
-        email: client.email,
-        role: client.role,
-        // storageUsed: client.storageUsed,
-      },
-      accessToken,
-      refreshToken,
-    });
-  }
-
-
 });
 
 export const register = TryCatch(async (req, res, next) => {
   const { name, email, password } = req.body;
-  //console.log("hitted in register")
-  //console.log("req.body", req.body)
+  
   if (!name || !email || !password) { 
     return res.status(400).json({
       success: false,
@@ -151,13 +132,13 @@ export const register = TryCatch(async (req, res, next) => {
     where: { email: validatedData.email },
   });
 
-  if(existingUser) return next(new ErrorHandler("User with this email already exists", 409));
+  if(existingUser) {
+    return next(new ErrorHandler("User with this email already exists", 409));
+  }
 
-  // Hash the password
   const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
-  // Create new user
-  const newUser = await db.user.create({
+  await db.user.create({
     data: {
       name: validatedData.name,
       email: validatedData.email,
@@ -168,10 +149,8 @@ export const register = TryCatch(async (req, res, next) => {
   res.status(201).json({
     success: true,
     message: "User registered successfully!",
-  })
-
+  });
 });
-
 
 export const refreshToken = TryCatch(async (req, res, next) => {
   let refreshToken = req.headers.authorization;
@@ -187,44 +166,50 @@ export const refreshToken = TryCatch(async (req, res, next) => {
     });
   }
 
-  // Decode without verifying expiration
-  const decoded = jwt.decode(refreshToken) as jwt.JwtPayload | null;
-
-  if (!decoded || typeof decoded === "string" || !decoded.id) {
-    return res.status(403).json({
-      success: false,
-      message: "Invalid refresh token",
-    });
-  }
-
   try {
-    // You can optionally verify token signature, ignoring expiration
-    jwt.verify(refreshToken, JWT_SECRET, { ignoreExpiration: true });
+    // Verify token signature AND expiration
+    const decoded = jwt.verify(refreshToken, JWT_SECRET) as jwt.JwtPayload;
 
-    // Check if user exists
-    const user = await db.user.findUnique({
-      where: { id: decoded.id },
-    });
-
-    if (!user) {
-      return res.status(404).json({
+    if (!decoded || !decoded.id) {
+      return res.status(403).json({
         success: false,
-        message: "User not found",
+        message: "Invalid refresh token payload",
       });
     }
 
-    // Generate new tokens
-    const newAccessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "15m",
+    // Check if user exists based on token type
+    let account;
+    if (decoded.role === 'Client') {
+      account = await db.client.findUnique({
+        where: { id: decoded.id },
+      });
+    } else {
+      account = await db.user.findUnique({
+        where: { id: decoded.id },
+      });
+    }
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    // Generate new tokens with same payload structure
+    const tokenPayload = { 
+      id: account.id, 
+      role: account.role,
+    //   type: decoded.type || 'user'
+    };
+
+    const newAccessToken = jwt.sign(tokenPayload, JWT_SECRET, {
+      expiresIn: ACCESS_TOKEN_EXPIRY,
     });
 
-    const newRefreshToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, {
-      expiresIn: "7d",
+    const newRefreshToken = jwt.sign(tokenPayload, JWT_SECRET, {
+      expiresIn: REFRESH_TOKEN_EXPIRY,
     });
-    
-    //console.log("newAccessToken in backend", newAccessToken);
-    //console.log("newRefreshToken in backend", newRefreshToken);
-
 
     return res.status(200).json({
       success: true,
@@ -234,13 +219,14 @@ export const refreshToken = TryCatch(async (req, res, next) => {
     });
 
   } catch (err) {
-    //console.log("Refresh token invalid:", err);
+    console.error("Refresh token error:", err);
     return res.status(403).json({
       success: false,
-      message: "Invalid refresh token",
+      message: "Invalid or expired refresh token",
     });
   }
 });
+
 
 
 

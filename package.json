@@ -1,10 +1,14 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "_moduleAliases": {
+    "@": "./dist"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
+    "start": "node dist/app.js",
     "dev": "tsx src/app.ts"
   },
   "author": "",
@@ -25,6 +29,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
     "razorpay": "^2.9.6",
     "tsx": "^4.19.3",
     "zod": "^3.24.2"
