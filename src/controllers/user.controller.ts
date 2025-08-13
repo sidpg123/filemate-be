@@ -13,11 +13,14 @@ export const userInfo = TryCatch(async (req, res, next) => {
     //we have to send no of clients, storaeg used, pending fees. 
     const [clientCount, storage, totalPendingFees] = await Promise.all([
         db.client.count({
-            where: { caId: userId },
+            where: {
+                caId: userId,
+                status: 'active'
+            },
         }),
         db.user.findUnique({
             where: {
-                id: userId
+                id: userId,
             },
             select: {
                 storageUsed: true,

@@ -42,5 +42,6 @@ app.use("/api/v1/client-dashboard", clientDashboardRoutes )
 app.use(errorMiddleware);
 
 app.listen(PORT, () => {
+  console.log("process.env.CLIENT_URL: ",  process.env.CLIENT_URL)
   console.log(`Server is running on port ${PORT}`);
 });

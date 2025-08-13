@@ -246,14 +246,25 @@ export const addClient = TryCatch(async (req, res, next) => {
     if (typeof userId !== 'string' || typeof name !== 'string' || typeof email !== 'string' || typeof phone !== 'string') {
         return next(new ErrorHandler("Invalid input types", 400));
     }
-    const existingClient = await db.client.findFirst({
-        where: {
-            email: email,
-            caId: userId,
-        },
-    });
 
-    if (existingClient) {
+    const [existingClient, existingClient1] = await Promise.all([
+
+        db.client.findFirst({
+            where: {
+                email: email,
+                // caId: userId,
+            },
+        }),
+
+        db.user.findFirst({
+            where: {
+                email: email
+            }
+        })
+    ])
+
+
+    if (existingClient || existingClient1) {
         return next(new ErrorHandler("Client with this email already exists", 400));
     }
 
@@ -304,32 +315,8 @@ export const getClientById = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Client not found", 404));
     }
 
-    // Fetch fees and process
-    // const allFees = await db.pendingFees.findMany({
-    //     where: { clientId: id },
-    //     select: { 
-    //         status: true, 
-    //         dueDate: true, 
-    //         amount: true 
-    //     },
-    // });
-
     const today = new Date();
 
-    // let pendingFeesAmount = 0;
-    // let paidFeesAmount = 0;
-    // // let overdueFeesAmount = 0;
-
-    // for (const fee of allFees) {
-    //     if (fee.status === "Paid") {
-    //         paidFeesAmount += fee.amount;
-    //     }
-
-    //     if (fee.status === "Pending") {
-    //         //   pendingFeesCount++;
-    //         pendingFeesAmount += fee.amount;
-    //     }
-    // }
     const allFees = await db.pendingFees.findMany({
         where: {
             clientId: id,

@@ -154,6 +154,7 @@ export const register = TryCatch(async (req, res, next) => {
 
 export const refreshToken = TryCatch(async (req, res, next) => {
   let refreshToken = req.headers.authorization;
+  console.log("hitted in refreshToken for user: ", req.user?.id);
 
   if (refreshToken && refreshToken.startsWith("Bearer ")) {
     refreshToken = refreshToken.split(" ")[1];
