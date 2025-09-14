@@ -5,10 +5,34 @@ import { ErrorHandler } from '../lib/utils';
 
 
 export const getDocuments = TryCatch(async (req, res, next) => {
-
+    console.log("Inside getDocuments");
     const userId = req.user?.id;
+
     const limit = 20;
     // const { id: clientId } = req.params;
+    const isClientActive = await db.client.findFirst({
+        where: {
+            id: userId,
+        },
+        select: {
+            status: true
+        }
+    })
+    if (!userId) {
+        return next(new ErrorHandler("Unauthorized: User ID not found", 401));
+    }
+    
+    // console.log("isclientActive", isClientActive);
+    
+    if (isClientActive?.status === 'inactive') {
+        return res.status(200).json({
+            success: false,
+            error: 'INACTIVE_USER',
+            message: "Your account is inactive. Please contact your CA for more details.",
+            data: []
+        })
+    }
+
     const nameSearch = req.query.search as string | undefined;
     const yearSearch = req.query.year as string | undefined; // <-- Add this
     const rawCursorCreatedAt = req.query.cursorUploadedAt;
@@ -79,7 +103,7 @@ export const getDocuments = TryCatch(async (req, res, next) => {
         });
 
     }
-
+    
     res.status(200).json({
         success: true,
         data: paginatedDocuments,
@@ -89,7 +113,10 @@ export const getDocuments = TryCatch(async (req, res, next) => {
 
 export const getTotalPendingFees = TryCatch(async (req, res, next) => {
     // const { id } = req.params; // Client ID
+    console.log("inside getTotalPendingFees ");
     const userId = req.user?.id;
+
+    console.log("inside totatPending Fees")
 
     if (!userId) {
         return next(new ErrorHandler("Unauthorized: User ID not found", 401));
@@ -135,6 +162,7 @@ export const getTotalPendingFees = TryCatch(async (req, res, next) => {
 });
 
 export const getFeeRecords = TryCatch(async (req, res, next) => {
+    console.log("inside getFeeRecords");
     // const { id } = req.params; // Client ID
     const userId = req.user?.id;
 

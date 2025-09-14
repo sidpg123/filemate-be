@@ -7,7 +7,7 @@ const app = express.Router()
 
 
 app.use(isAuthenticated)
-// app.use(authorizeRoles('CA'))
+app.use(authorizeRoles('CA'))
 app.get('/', getClients);
 app.post('/', addClient);    
 app.get('/:id', getClientById);

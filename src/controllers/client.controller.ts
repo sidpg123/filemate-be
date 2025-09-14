@@ -20,7 +20,7 @@ import { ErrorHandler } from '../lib/utils';
 import { getSignedUrl } from '@aws-sdk/cloudfront-signer';
 
 export const getClients = TryCatch(async (req, res, next) => {
-    // //console.log("Fetching clients for user...");
+    console.log("Fetching clients for user...");
     // console.log(req.user);
     const userId = req.user?.id;
     const limit = 30;
@@ -247,7 +247,8 @@ export const addClient = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Invalid input types", 400));
     }
 
-    const [existingClient, existingClient1] = await Promise.all([
+
+    const [existingClient, existingClient1, userPlan] = await Promise.all([
 
         db.client.findFirst({
             where: {
@@ -260,12 +261,37 @@ export const addClient = TryCatch(async (req, res, next) => {
             where: {
                 email: email
             }
+        }),
+
+        db.subscription.findFirst({
+            where: {
+                userId: userId as string,
+            }, select: {
+                plan: {
+                    select: {
+                        name: true,
+                    }
+                }
+            }
         })
     ])
 
 
     if (existingClient || existingClient1) {
         return next(new ErrorHandler("Client with this email already exists", 400));
+    }
+    console.log("userPlan", userPlan)
+    if( userPlan?.plan.name === 'ff' ) {
+        const clientCount = await db.client.count({
+            where: {
+                caId: userId as string,
+            }
+        })
+        console.log("clientCount:", clientCount, "userId", userId);
+
+        if (clientCount > 1) {
+            return next(new ErrorHandler("Free plan allows only 10 clients. Please upgrade your plan.", 400));
+        }
     }
 
     const newClient = await db.client.create({

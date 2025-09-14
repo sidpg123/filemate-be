@@ -35,8 +35,36 @@ export const hasActiveSubscription = TryCatch(async (req, res, next) => {
         where: {
             userId: userId as string,
             status: 'active'
+        },
+        select: {
+            status: true,
+            expiresAt: true,
+            plan: {
+                select: {
+                    name: true,
+                }
+            }
         }
+
     })
+
+    if(subscription && subscription.expiresAt < new Date()){
+        await db.subscription.update({
+            where: {
+                userId: userId as string,
+                status: 'active'
+            },
+            data: {
+                status: 'expired'
+            }
+        })
+        return res.json({ hasActiveSubscription: false});
+    }
+    
+    if(subscription && subscription.plan.name === 'ff') {
+        return res.json({ hasActiveSubscription: false});
+    }
+
     res.json({ hasActiveSubscription: !!subscription });
 
 })
@@ -45,8 +73,7 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     // //console.log("Inside paymentVerification")
     const body = razorpay_order_id + "|" + razorpay_payment_id;
-
-
+    
     if (!process.env.RAZORPAY_KEY_SECRET) {
         return next(new ErrorHandler("Razorpay API secret is not configured", 500));
     }
@@ -92,6 +119,12 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
     // //console.log("Subscription created")
     await db.$transaction(async (tx) => {
 
+        await tx.subscription.delete({
+            where: {
+                userId: userId as string
+            }
+        })
+
         const user = await tx.user.findUnique({
             where: {
                 id: userId as string,
@@ -112,7 +145,7 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
             }
         })
 
-        await db.subscription.create({
+        await tx.subscription.create({
             data: {
                 userId: userId as string,
                 planId: planId as string,
@@ -124,8 +157,7 @@ export const paymentVerification = TryCatch(async (req, res, next) => {
                 createdAt: new Date(),
             }
         })
-
-        res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+        res.redirect(`${process.env.CLIENT_URL}/dashboard`);
     })
 
 })

@@ -45,67 +45,72 @@ model User {
   storageUsed      BigInt         @default(0) // in bytes
   createdAt        DateTime       @default(now())
   allocatedStorage BigInt         @default(1073741824) // 1 GB in bytes
+  isActive         Boolean        @default(true)
+  lastLoginAt      DateTime       @default(now())
   clients          Client[]
   subscription     Subscription?
   fileCategories   FileCategory[]
   feeCategory      FeeCategory[]
-  UserDocument UserDocument[]
-  
+  UserDocument     UserDocument[]
+
   @@index([email])
 }
 
 model Plan {
-  id                String         @id @default(uuid())
-  name              String         @unique // 'starter', 'pro', 'enterprise'
-  displayName       String         // 'Starter Plan', 'Professional Plan'
-  description       String?
-  price             Decimal        // Monthly price
-  storageLimit      BigInt         // Storage limit in bytes
-  maxClients        Int?           // Max clients allowed (null = unlimited)
-  features          Json?          // JSON array of features
-  isActive          Boolean        @default(true)
-  sortOrder         Int            @default(0) // For display ordering
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  
-  subscriptions     Subscription[]
-  
+  id           String   @id @default(uuid())
+  name         String   @unique // 'starter', 'pro', 'enterprise'
+  displayName  String // 'Starter Plan', 'Professional Plan'
+  description  String?
+  price        Decimal // Monthly price
+  storageLimit BigInt // Storage limit in bytes
+  maxClients   Int? // Max clients allowed (null = unlimited)
+  features     Json? // JSON array of features
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0) // For display ordering
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions Subscription[]
+
   @@index([isActive, sortOrder])
 }
 
 model Subscription {
-  id                  String   @id @default(uuid())
-  userId              String   @unique
-  planId              String   // Reference to Plan table
-  status              SubscriptionStatus   // active, cancelled, expired, pending
-  razorpay_order_id   String?  // Nullable, for when payment is made
-  razorpay_payment_id String?  // Nullable, for when payment is made
-  razorpay_signature  String?  // Nullable, for when payment is made
-  startDate           DateTime @default(now())
+  id                  String             @id @default(uuid())
+  userId              String             @unique
+  planId              String // Reference to Plan table
+  status              SubscriptionStatus // active, cancelled, expired, pending
+  razorpay_order_id   String? // Nullable, for when payment is made
+  razorpay_payment_id String? // Nullable, for when payment is made
+  razorpay_signature  String? // Nullable, for when payment is made
+  startDate           DateTime           @default(now())
   expiresAt           DateTime
   cancelledAt         DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan Plan @relation(fields: [planId], references: [id])
-  
+
   @@index([status, expiresAt])
   @@index([userId])
 }
+
 model Client {
-  id          String   @id @default(uuid())
-  caId        String   @map("ca_id")
+  id          String        @id @default(uuid())
+  caId        String        @map("ca_id")
   name        String
-  email       String?  @unique
-  role        Role     @default(Client) // Default role for clients
+  email       String?       @unique
+  role        Role          @default(Client) // Default role for clients
   phone       String?
-  status      String   @default("active") // e.g., 'active', 'inactive', 'archived'
-  storageUsed BigInt   @default(0) @map("storage_used") // in MB
-  createdAt   DateTime @default(now())
-  ca        User          @relation(fields: [caId], references: [id], onDelete: Cascade)
-  documents Document[]
-  fees      PendingFees[]
+  status      String        @default("active") // e.g., 'active', 'inactive', 'archived'
+  storageUsed BigInt        @default(0) @map("storage_used") // in MB
+  createdAt   DateTime      @default(now())
+  isActive    Boolean       @default(true)
+  lastLoginAt DateTime      @default(now())
+  ca          User          @relation(fields: [caId], references: [id], onDelete: Cascade)
+  documents   Document[]
+  fees        PendingFees[]
 
   @@index([id, createdAt])
 }
@@ -121,69 +126,66 @@ model Document {
   uploadedAt      DateTime      @default(now())
   visibleToClient Boolean       @default(true)
   client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  category        FileCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade) 
+  category        FileCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId      String?       @map("category_id")
 
   @@index([clientId, categoryId])
 }
 
 model UserDocument {
-  id              String      @id @default(uuid())
-  userId          String      @map("user_id")
-  fileName        String
-  fileKey         String
-  thumbnailKey    String?
-  year            String
-  fileSize        Float
-  uploadedAt      DateTime    @default(now())
-  categoryId      String?     @map("category_id")
-  visibleToAdmin  Boolean     @default(true) // if you ever add Admin viewing user files
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  fileName       String
+  fileKey        String
+  thumbnailKey   String?
+  year           String
+  fileSize       Float
+  uploadedAt     DateTime @default(now())
+  categoryId     String?  @map("category_id")
 
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category        FileCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category FileCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@index([userId, categoryId])
 }
 
-
 model FileCategory {
-  id          String     @id @default(uuid())
-  name        String
-  description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  userId      String     @map("user_id")
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents   Document[]
+  id           String         @id @default(uuid())
+  name         String
+  description  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  userId       String         @map("user_id")
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents    Document[]
+  UserDocument UserDocument[]
 
   @@unique([name, userId])
-  UserDocument UserDocument[]
 }
 
 model PendingFees {
-  id           String        @id @default(uuid())
-  clientId     String        @map("client_id")
-  amount       Float
-  dueDate      DateTime
-  note         String?
-  status       FeeStatus     @default(Pending)
-  createdAt    DateTime      @default(now())
-  paymentDate  DateTime?
+  id          String    @id @default(uuid())
+  clientId    String    @map("client_id")
+  amount      Float
+  dueDate     DateTime
+  note        String?
+  status      FeeStatus @default(Pending)
+  createdAt   DateTime  @default(now())
+  paymentDate DateTime?
 
-  feeCategoryId String?       @map("fee_category_id")
-  feeCategory   FeeCategory?  @relation(fields: [feeCategoryId], references: [id], onDelete: SetNull)
+  feeCategoryId String?      @map("fee_category_id")
+  feeCategory   FeeCategory? @relation(fields: [feeCategoryId], references: [id], onDelete: SetNull)
 
-  client       Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  @@unique([createdAt, id], name: "createdAt_id")
   @@index([clientId])
   @@index([feeCategoryId])
-  @@unique([createdAt, id], name: "createdAt_id")
 }
-
 
 model FeeCategory {
   id          String        @id @default(uuid())
-  name        String        
+  name        String
   description String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
