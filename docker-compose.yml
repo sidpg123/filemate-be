@@ -3,22 +3,22 @@ version: "3.9"
 services:
   postgres:
     image: postgres:latest
-    container_name: filemate-db
+    container_name: filesmate-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: filemate
-      POSTGRES_USER: filemate
-      POSTGRES_PASSWORD: filemate
+      POSTGRES_DB: filesmate
+      POSTGRES_USER: filesmate
+      POSTGRES_PASSWORD: filesmate
     ports:
       - "5432:5432"
     volumes:
-      - filemate:/var/lib/postgresql/data
+      - filesmate:/var/lib/postgresql/data
     networks:
-      - filemate-net
+      - filesmate-net
 
 volumes:
-  filemate:
+  filesmate:
 
 networks:
-  filemate-net:
+  filesmate-net:
     driver: bridge

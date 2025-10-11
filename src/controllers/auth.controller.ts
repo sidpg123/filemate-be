@@ -80,8 +80,8 @@ function generateTokens(payload: { id: string; role: string }): { accessToken: s
     sub: payload.id,  // JWT standard: use 'sub' for subject
     id: payload.id,   // Keep 'id' for backward compatibility
     role: payload.role,
-    // iss: 'filemate-backend',
-    // aud: 'filemate-users'
+    // iss: 'filesmate-backend',
+    // aud: 'filesmate-users'
   };
 
   const accessToken = jwt.sign(tokenPayload, ACCESS_JWT_SECRET!, {
