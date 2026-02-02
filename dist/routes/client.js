@@ -1,0 +1,25 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const auth_js_1 = require("../middlewares/auth.js");
+const client_controller_js_1 = require("../controllers/client.controller.js");
+const role_js_1 = require("@/middlewares/role.js");
+const app = express_1.default.Router();
+app.use(auth_js_1.isAuthenticated);
+app.use((0, role_js_1.authorizeRoles)('CA'));
+app.get('/', client_controller_js_1.getClients);
+app.post('/', client_controller_js_1.addClient);
+app.get('/:id', client_controller_js_1.getClientById);
+app.put('/:id', client_controller_js_1.updateClient);
+app.delete('/:id', client_controller_js_1.deleteClient);
+app.get('/:id/fees', client_controller_js_1.getFeeRecords);
+app.get('/:id/fees/statistics', client_controller_js_1.getFeeStatistics);
+app.post('/:id/fees', client_controller_js_1.addFeeRecord);
+app.put('/:id/fees/:feeId', client_controller_js_1.updateFeeRecord);
+app.delete('/:id/fees/:feeId', client_controller_js_1.deleteFeeRecord);
+app.get('/:id/document', client_controller_js_1.getDocuments);
+app.post('/document', client_controller_js_1.uploadDocMetaData);
+exports.default = app;

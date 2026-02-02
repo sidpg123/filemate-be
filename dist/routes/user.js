@@ -1,0 +1,20 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const auth_js_1 = require("../middlewares/auth.js");
+const user_controller_js_1 = require("../controllers/user.controller.js");
+const role_js_1 = require("@/middlewares/role.js");
+const app = express_1.default.Router();
+app.use(auth_js_1.isAuthenticated);
+app.use((0, role_js_1.authorizeRoles)('CA'));
+app.get('/info', user_controller_js_1.userInfo);
+app.get('/fees/categories', user_controller_js_1.getFeesCategories);
+app.post('/fees/categories', user_controller_js_1.createFeeCategory);
+app.put('/fees/categories/:id', user_controller_js_1.editFeeCategory);
+app.delete('/fees/categories/:id', user_controller_js_1.deleteFeeCategory);
+app.get('/documents', user_controller_js_1.getUserDocuments);
+app.post('/documents', user_controller_js_1.uploadUserDocMetaData);
+exports.default = app;
