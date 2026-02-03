@@ -57,6 +57,14 @@ app.get('/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development'
     });
 });
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Server is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 app.use("/api/v1/auth", auth_1.default);
 app.use("/api/v1/clients", client_1.default);
 app.use("/api/v1/payment", payment_1.default);
