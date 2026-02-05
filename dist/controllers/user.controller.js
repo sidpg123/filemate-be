@@ -134,7 +134,7 @@ exports.editFeeCategory = (0, healpers_1.default)(async (req, res, next) => {
         return next(new utils_1.ErrorHandler("Unauthorized", 401));
     }
     const { name } = req.body;
-    const { id } = req.params;
+    const id = req.params.id;
     if (!id || !name) {
         return next(new utils_1.ErrorHandler("Category ID and name are required", 400));
     }
@@ -159,7 +159,7 @@ exports.deleteFeeCategory = (0, healpers_1.default)(async (req, res, next) => {
     if (!req.user?.id || req.user?.role !== "CA") {
         return next(new utils_1.ErrorHandler("Unauthorized", 401));
     }
-    const { id } = req.params;
+    const id = req.params.id;
     if (!id) {
         return next(new utils_1.ErrorHandler("Category ID is required", 400));
     }

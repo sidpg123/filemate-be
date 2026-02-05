@@ -114,7 +114,7 @@ export const editFeeCategory = TryCatch(async (req, res, next) => {
     }
 
     const { name } = req.body;
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     if (!id || !name) {
         return next(new ErrorHandler("Category ID and name are required", 400));
@@ -146,7 +146,7 @@ export const deleteFeeCategory = TryCatch(async (req, res, next) => {
         return next(new ErrorHandler("Unauthorized", 401));
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     if (!id) {
         return next(new ErrorHandler("Category ID is required", 400));

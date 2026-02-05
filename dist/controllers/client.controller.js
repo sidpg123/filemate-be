@@ -538,7 +538,7 @@ exports.getFeeRecords = (0, healpers_1.default)(async (req, res, next) => {
 });
 exports.addFeeRecord = (0, healpers_1.default)(async (req, res, next) => {
     ////console.log("Hit addFeeRecord");
-    const { id } = req.params; // Client ID
+    const id = req.params.id; // Client ID
     const userId = req.user?.id;
     const { amount, note, dueDate, status = 'Pending', paymentDate, feeCategoryId } = req.body;
     ////console.log(req.body)
@@ -611,7 +611,8 @@ exports.addFeeRecord = (0, healpers_1.default)(async (req, res, next) => {
     }
 });
 exports.updateFeeRecord = (0, healpers_1.default)(async (req, res, next) => {
-    const { id, feeId } = req.params; // Client ID and Fee ID
+    const id = req.params.id; // Client ID and Fee ID
+    const feeId = req.params.feeId; // Client ID and Fee ID
     const userId = req.user?.id;
     ////console.log("FeeId:", feeId);
     ////console.log("ClientId:", id);
@@ -697,7 +698,8 @@ exports.updateFeeRecord = (0, healpers_1.default)(async (req, res, next) => {
     }
 });
 exports.deleteFeeRecord = (0, healpers_1.default)(async (req, res, next) => {
-    const { id, feeId } = req.params; // Client ID and Fee ID
+    const id = req.params.id; // Client ID and Fee ID
+    const feeId = req.params.feeId; // Client ID and Fee ID
     const userId = req.user?.id;
     if (!id) {
         return next(new utils_1.ErrorHandler("Client ID is required", 400));
@@ -740,7 +742,7 @@ exports.deleteFeeRecord = (0, healpers_1.default)(async (req, res, next) => {
 });
 // Additional utility function for getting fee statistics
 exports.getFeeStatistics = (0, healpers_1.default)(async (req, res, next) => {
-    const { id } = req.params; // Client ID
+    const id = req.params.id; // Client ID
     const userId = req.user?.id;
     if (!userId) {
         return next(new utils_1.ErrorHandler("Unauthorized: User ID not found", 401));
@@ -868,7 +870,7 @@ exports.getDocuments = (0, healpers_1.default)(async (req, res, next) => {
     ////console.log("fetching documents");
     const userId = req.user?.id;
     const limit = 10;
-    const { id: clientId } = req.params;
+    const clientId = req.params.id;
     const nameSearch = req.query.search;
     const yearSearch = req.query.year; // <-- Add this
     const rawCursorCreatedAt = req.query.cursorUploadedAt;

@@ -592,7 +592,7 @@ export const getFeeRecords = TryCatch(async (req, res, next) => {
 
 export const addFeeRecord = TryCatch(async (req, res, next) => {
     ////console.log("Hit addFeeRecord");
-    const { id } = req.params; // Client ID
+    const id  = req.params.id as string; // Client ID
     const userId = req.user?.id;
 
     const {
@@ -686,7 +686,8 @@ export const addFeeRecord = TryCatch(async (req, res, next) => {
 });
 
 export const updateFeeRecord = TryCatch(async (req, res, next) => {
-    const { id, feeId } = req.params; // Client ID and Fee ID
+    const id = req.params.id as string; // Client ID and Fee ID
+    const feeId = req.params.feeId as string; // Client ID and Fee ID
     const userId = req.user?.id;
 
     ////console.log("FeeId:", feeId);
@@ -795,7 +796,8 @@ export const updateFeeRecord = TryCatch(async (req, res, next) => {
 });
 
 export const deleteFeeRecord = TryCatch(async (req, res, next) => {
-    const { id, feeId } = req.params; // Client ID and Fee ID
+    const id = req.params.id as string; // Client ID and Fee ID
+    const feeId = req.params.feeId as string; // Client ID and Fee ID
     const userId = req.user?.id;
 
     if (!id) {
@@ -844,7 +846,7 @@ export const deleteFeeRecord = TryCatch(async (req, res, next) => {
 
 // Additional utility function for getting fee statistics
 export const getFeeStatistics = TryCatch(async (req, res, next) => {
-    const { id } = req.params; // Client ID
+    const id = req.params.id as string; // Client ID
     const userId = req.user?.id;
 
     if (!userId) {
@@ -996,7 +998,7 @@ export const getDocuments = TryCatch(async (req, res, next) => {
 
     const userId = req.user?.id;
     const limit = 10;
-    const { id: clientId } = req.params;
+    const clientId  = req.params.id as string;
     const nameSearch = req.query.search as string | undefined;
     const yearSearch = req.query.year as string | undefined; // <-- Add this
     const rawCursorCreatedAt = req.query.cursorUploadedAt;
